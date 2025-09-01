@@ -311,23 +311,25 @@ class Game {
             alertStatus: document.getElementById('alert-status'),
         };
 
-        // Audio system
+        // Audio system - with offline fallback
         this.audio = {
-            loadingMusic: new Audio('GameLoading.mp3'),
-            mainBg: new Audio('MainBgNormal.mp3'),
-            threatBg: new Audio('SecondaryBgWhenThingsGoWrong.mp3'),
-            currentBg: null
+            loadingMusic: null,
+            mainBg: null,
+            threatBg: null,
+            currentBg: null,
+            available: false // Track if audio is available
         };
         
-        // Setup audio properties
-        this.audio.mainBg.loop = true;
-        this.audio.mainBg.volume = 0.6;
-        this.audio.loadingMusic.volume = 0.7;
-        this.audio.threatBg.volume = 0.8;
+        // Initialize audio with error handling for offline mode
+        this.initializeAudio();
+        
         this.audioEnabled = true; // Allow users to toggle audio
 
         this.commandHistory = [];
         this.historyIndex = -1;
+
+        // Initialize audio system
+        this.initializeAudio();
 
         this.DATA = {
             buildings: {
@@ -593,33 +595,73 @@ INITIALIZING ADMINISTRATOR LINK
 
     // --- AUDIO SYSTEM ---
     playLoadingMusic() {
-        if (this.audioEnabled) {
+        if (this.audioEnabled && this.audio.available && this.audio.loadingMusic) {
             // Set loading music to loop and ensure it's audible
             this.audio.loadingMusic.loop = true;
             this.audio.loadingMusic.volume = 0.8;
-            this.audio.loadingMusic.play().catch(e => console.log('Loading music play failed:', e));
+            this.audio.loadingMusic.play().catch(e => {
+                console.log('Loading music play failed - likely offline:', e);
+                this.audio.available = false;
+            });
         }
     }
 
     stopLoadingMusic() {
-        this.audio.loadingMusic.pause();
-        this.audio.loadingMusic.currentTime = 0;
-        this.audio.loadingMusic.loop = false;
+        if (this.audio.loadingMusic) {
+            this.audio.loadingMusic.pause();
+            this.audio.loadingMusic.currentTime = 0;
+            this.audio.loadingMusic.loop = false;
+        }
+    }
+
+    initializeAudio() {
+        try {
+            this.audio.loadingMusic = new Audio('GameLoading.mp3');
+            this.audio.mainBg = new Audio('MainBgNormal.mp3');
+            this.audio.threatBg = new Audio('SecondaryBgWhenThingsGoWrong.mp3');
+            
+            // Setup audio properties
+            this.audio.mainBg.loop = true;
+            this.audio.mainBg.volume = 0.6;
+            this.audio.loadingMusic.volume = 0.7;
+            this.audio.threatBg.volume = 0.8;
+            
+            // Test if audio can load (for online detection)
+            this.audio.mainBg.addEventListener('canplaythrough', () => {
+                this.audio.available = true;
+            });
+            
+            this.audio.mainBg.addEventListener('error', () => {
+                this.audio.available = false;
+                console.log('Audio unavailable - running in offline mode');
+            });
+            
+            this.audio.available = true; // Assume available until proven otherwise
+        } catch (error) {
+            console.log('Audio initialization failed - offline mode detected');
+            this.audio.available = false;
+        }
     }
 
     playMainBg() {
-        if (this.audioEnabled && this.audio.currentBg !== this.audio.mainBg) {
+        if (this.audioEnabled && this.audio.available && this.audio.mainBg && this.audio.currentBg !== this.audio.mainBg) {
             this.stopAllBg();
             this.audio.currentBg = this.audio.mainBg;
-            this.audio.mainBg.play().catch(e => console.log('Audio play failed:', e));
+            this.audio.mainBg.play().catch(e => {
+                console.log('Audio play failed - likely offline:', e);
+                this.audio.available = false;
+            });
         }
     }
 
     playThreatBg() {
-        if (this.audioEnabled && this.audio.currentBg !== this.audio.threatBg) {
+        if (this.audioEnabled && this.audio.available && this.audio.threatBg && this.audio.currentBg !== this.audio.threatBg) {
             this.stopAllBg();
             this.audio.currentBg = this.audio.threatBg;
-            this.audio.threatBg.play().catch(e => console.log('Audio play failed:', e));
+            this.audio.threatBg.play().catch(e => {
+                console.log('Audio play failed - likely offline:', e);
+                this.audio.available = false;
+            });
             
             // Auto-return to main bg after threat music finishes
             this.audio.threatBg.onended = () => {
@@ -629,8 +671,8 @@ INITIALIZING ADMINISTRATOR LINK
     }
 
     stopAllBg() {
-        this.audio.mainBg.pause();
-        this.audio.threatBg.pause();
+        if (this.audio.mainBg) this.audio.mainBg.pause();
+        if (this.audio.threatBg) this.audio.threatBg.pause();
         this.audio.currentBg = null;
     }
 
@@ -1408,6 +1450,8 @@ INITIALIZING ADMINISTRATOR LINK
         this.write("  ESC - Exit fullscreen (when in fullscreen)");
         this.write("  PageUp/PageDown - Scroll console");
         this.write("  Tab - Autocomplete commands");
+        this.write("\n🌐 OFFLINE MODE: Game works completely offline after initial load!");
+        this.write("   Audio will be disabled when internet is disconnected.");
         this.write("\nUse PageUp/PageDown or Shift+Scroll to navigate console history.");
     }
     
@@ -1863,7 +1907,11 @@ INITIALIZING ADMINISTRATOR LINK
 
     cmd_audio() {
         const enabled = this.toggleAudio();
-        this.write(`Audio ${enabled ? 'enabled' : 'disabled'}.`, enabled ? 'green' : 'yellow', 'info');
+        let status = enabled ? 'enabled' : 'disabled';
+        if (enabled && !this.audio.available) {
+            status += ' (offline mode - no audio files available)';
+        }
+        this.write(`Audio ${status}.`, enabled ? 'green' : 'yellow', 'info');
     }
 
     cmd_fullscreen() {
