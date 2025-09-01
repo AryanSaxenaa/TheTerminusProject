@@ -280,33 +280,81 @@
 if ('serviceWorker' in navigator) {
     // Inline Service Worker for single-file compliance
     const swCode = `
-        const CACHE_NAME = 'terminus-audio-v1';
+        const CACHE_NAME = 'terminus-audio-v2';
         const urlsToCache = [
-            '/',
-            '/index.html',
-            '/GameLoading.mp3',
-            '/MainBgNormal.mp3',
-            '/SecondaryBgWhenThingsGoWrong.mp3'
+            './',
+            './index.html',
+            './GameLoading.mp3',
+            './MainBgNormal.mp3',
+            './SecondaryBgWhenThingsGoWrong.mp3'
         ];
 
         self.addEventListener('install', event => {
+            console.log('Service Worker: Installing...');
             event.waitUntil(
                 caches.open(CACHE_NAME)
-                    .then(cache => cache.addAll(urlsToCache))
-                    .catch(err => console.log('Cache install failed:', err))
+                    .then(cache => {
+                        console.log('Service Worker: Caching files...');
+                        return cache.addAll(urlsToCache);
+                    })
+                    .then(() => {
+                        console.log('Service Worker: All files cached successfully');
+                        return self.skipWaiting();
+                    })
+                    .catch(err => {
+                        console.error('Service Worker: Cache install failed:', err);
+                        // Try to cache files individually to identify which one fails
+                        return caches.open(CACHE_NAME).then(cache => {
+                            return Promise.allSettled(
+                                urlsToCache.map(url => 
+                                    cache.add(url).catch(e => 
+                                        console.error('Failed to cache:', url, e)
+                                    )
+                                )
+                            );
+                        });
+                    })
+            );
+        });
+
+        self.addEventListener('activate', event => {
+            console.log('Service Worker: Activating...');
+            event.waitUntil(
+                caches.keys().then(cacheNames => {
+                    return Promise.all(
+                        cacheNames.map(cacheName => {
+                            if (cacheName !== CACHE_NAME) {
+                                console.log('Service Worker: Deleting old cache:', cacheName);
+                                return caches.delete(cacheName);
+                            }
+                        })
+                    );
+                }).then(() => {
+                    console.log('Service Worker: Ready to serve files offline');
+                    return self.clients.claim();
+                })
             );
         });
 
         self.addEventListener('fetch', event => {
-            event.respondWith(
-                caches.match(event.request)
-                    .then(response => {
-                        if (response) {
-                            return response;
-                        }
-                        return fetch(event.request);
-                    })
-            );
+            // Only handle same-origin requests
+            if (event.request.url.startsWith(self.location.origin)) {
+                event.respondWith(
+                    caches.match(event.request)
+                        .then(response => {
+                            if (response) {
+                                console.log('Service Worker: Serving from cache:', event.request.url);
+                                return response;
+                            }
+                            console.log('Service Worker: Fetching from network:', event.request.url);
+                            return fetch(event.request);
+                        })
+                        .catch(err => {
+                            console.error('Service Worker: Fetch failed:', event.request.url, err);
+                            throw err;
+                        })
+                );
+            }
         });
     `;
     
@@ -661,6 +709,7 @@ INITIALIZING ADMINISTRATOR LINK
 
     initializeAudio() {
         try {
+            console.log('Initializing audio system...');
             this.audio.loadingMusic = new Audio('GameLoading.mp3');
             this.audio.mainBg = new Audio('MainBgNormal.mp3');
             this.audio.threatBg = new Audio('SecondaryBgWhenThingsGoWrong.mp3');
@@ -681,29 +730,30 @@ INITIALIZING ADMINISTRATOR LINK
             this.audio.mainBg.load();
             this.audio.threatBg.load();
             
-            // Track successful caching
+            // Track successful caching with individual file logging
             let loadedCount = 0;
-            const checkAllLoaded = () => {
+            const checkAllLoaded = (audioName) => {
                 loadedCount++;
+                console.log(`Audio loaded: ${audioName} (${loadedCount}/3)`);
                 if (loadedCount >= 3) {
                     this.audio.available = true;
                     console.log('All audio files cached for offline use');
                 }
             };
             
-            this.audio.loadingMusic.addEventListener('canplaythrough', checkAllLoaded, { once: true });
-            this.audio.mainBg.addEventListener('canplaythrough', checkAllLoaded, { once: true });
-            this.audio.threatBg.addEventListener('canplaythrough', checkAllLoaded, { once: true });
+            this.audio.loadingMusic.addEventListener('canplaythrough', () => checkAllLoaded('GameLoading.mp3'), { once: true });
+            this.audio.mainBg.addEventListener('canplaythrough', () => checkAllLoaded('MainBgNormal.mp3'), { once: true });
+            this.audio.threatBg.addEventListener('canplaythrough', () => checkAllLoaded('SecondaryBgWhenThingsGoWrong.mp3'), { once: true });
             
-            // Handle errors (offline mode)
-            const handleError = () => {
+            // Handle errors with specific file identification
+            const handleError = (audioName) => {
+                console.error(`Audio load failed: ${audioName}`);
                 this.audio.available = false;
-                console.log('Audio files unavailable - offline mode or network error');
             };
             
-            this.audio.loadingMusic.addEventListener('error', handleError);
-            this.audio.mainBg.addEventListener('error', handleError);
-            this.audio.threatBg.addEventListener('error', handleError);
+            this.audio.loadingMusic.addEventListener('error', () => handleError('GameLoading.mp3'));
+            this.audio.mainBg.addEventListener('error', () => handleError('MainBgNormal.mp3'));
+            this.audio.threatBg.addEventListener('error', () => handleError('SecondaryBgWhenThingsGoWrong.mp3'));
             
             this.audio.available = true; // Assume available until proven otherwise
         } catch (error) {
@@ -724,17 +774,31 @@ INITIALIZING ADMINISTRATOR LINK
     }
 
     playThreatBg() {
+        console.log('Threat background music triggered - checking conditions...');
+        console.log('Audio enabled:', this.audioEnabled);
+        console.log('Threat audio object exists:', !!this.audio.threatBg);
+        console.log('Current background:', this.audio.currentBg);
+        console.log('Threat audio readyState:', this.audio.threatBg ? this.audio.threatBg.readyState : 'N/A');
+        
         if (this.audioEnabled && this.audio.threatBg && this.audio.currentBg !== this.audio.threatBg) {
+            console.log('Playing threat background music: SecondaryBgWhenThingsGoWrong.mp3');
             this.stopAllBg();
             this.audio.currentBg = this.audio.threatBg;
-            this.audio.threatBg.play().catch(e => {
-                console.log('Audio play failed:', e);
+            this.audio.threatBg.play().then(() => {
+                console.log('Threat music started successfully');
+            }).catch(e => {
+                console.error('Threat music play failed:', e);
+                console.error('Audio src:', this.audio.threatBg.src);
+                console.error('Audio error code:', this.audio.threatBg.error?.code);
             });
             
             // Auto-return to main bg after threat music finishes
             this.audio.threatBg.onended = () => {
+                console.log('Threat music ended, returning to main background');
                 this.playMainBg();
             };
+        } else {
+            console.log('Threat music not played - conditions not met');
         }
     }
 
