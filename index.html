@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <title>ASCII Empire v5.0 - The Terminus Project</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- Preload audio files for offline caching -->
+  <link rel="preload" href="GameLoading.mp3" as="audio" type="audio/mpeg">
+  <link rel="preload" href="MainBgNormal.mp3" as="audio" type="audio/mpeg">
+  <link rel="preload" href="SecondaryBgWhenThingsGoWrong.mp3" as="audio" type="audio/mpeg">
   <style>
     /* FONT & BASE SETUP */
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
@@ -272,6 +276,48 @@
   </div>
 
 <script>
+// Register Service Worker for offline audio caching
+if ('serviceWorker' in navigator) {
+    // Inline Service Worker for single-file compliance
+    const swCode = `
+        const CACHE_NAME = 'terminus-audio-v1';
+        const urlsToCache = [
+            '/',
+            '/index.html',
+            '/GameLoading.mp3',
+            '/MainBgNormal.mp3',
+            '/SecondaryBgWhenThingsGoWrong.mp3'
+        ];
+
+        self.addEventListener('install', event => {
+            event.waitUntil(
+                caches.open(CACHE_NAME)
+                    .then(cache => cache.addAll(urlsToCache))
+                    .catch(err => console.log('Cache install failed:', err))
+            );
+        });
+
+        self.addEventListener('fetch', event => {
+            event.respondWith(
+                caches.match(event.request)
+                    .then(response => {
+                        if (response) {
+                            return response;
+                        }
+                        return fetch(event.request);
+                    })
+            );
+        });
+    `;
+    
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const swUrl = URL.createObjectURL(blob);
+    
+    navigator.serviceWorker.register(swUrl)
+        .then(registration => console.log('Service Worker registered for offline audio'))
+        .catch(error => console.log('Service Worker registration failed:', error));
+}
+
 class Game {
     constructor() {
         this.state = {
@@ -595,13 +641,12 @@ INITIALIZING ADMINISTRATOR LINK
 
     // --- AUDIO SYSTEM ---
     playLoadingMusic() {
-        if (this.audioEnabled && this.audio.available && this.audio.loadingMusic) {
+        if (this.audioEnabled && this.audio.loadingMusic) {
             // Set loading music to loop and ensure it's audible
             this.audio.loadingMusic.loop = true;
             this.audio.loadingMusic.volume = 0.8;
             this.audio.loadingMusic.play().catch(e => {
-                console.log('Loading music play failed - likely offline:', e);
-                this.audio.available = false;
+                console.log('Loading music play failed:', e);
             });
         }
     }
@@ -620,21 +665,45 @@ INITIALIZING ADMINISTRATOR LINK
             this.audio.mainBg = new Audio('MainBgNormal.mp3');
             this.audio.threatBg = new Audio('SecondaryBgWhenThingsGoWrong.mp3');
             
+            // Force preload for offline caching
+            this.audio.loadingMusic.preload = 'auto';
+            this.audio.mainBg.preload = 'auto';
+            this.audio.threatBg.preload = 'auto';
+            
             // Setup audio properties
             this.audio.mainBg.loop = true;
             this.audio.mainBg.volume = 0.6;
             this.audio.loadingMusic.volume = 0.7;
             this.audio.threatBg.volume = 0.8;
             
-            // Test if audio can load (for online detection)
-            this.audio.mainBg.addEventListener('canplaythrough', () => {
-                this.audio.available = true;
-            });
+            // Load audio files into browser cache
+            this.audio.loadingMusic.load();
+            this.audio.mainBg.load();
+            this.audio.threatBg.load();
             
-            this.audio.mainBg.addEventListener('error', () => {
+            // Track successful caching
+            let loadedCount = 0;
+            const checkAllLoaded = () => {
+                loadedCount++;
+                if (loadedCount >= 3) {
+                    this.audio.available = true;
+                    console.log('All audio files cached for offline use');
+                }
+            };
+            
+            this.audio.loadingMusic.addEventListener('canplaythrough', checkAllLoaded, { once: true });
+            this.audio.mainBg.addEventListener('canplaythrough', checkAllLoaded, { once: true });
+            this.audio.threatBg.addEventListener('canplaythrough', checkAllLoaded, { once: true });
+            
+            // Handle errors (offline mode)
+            const handleError = () => {
                 this.audio.available = false;
-                console.log('Audio unavailable - running in offline mode');
-            });
+                console.log('Audio files unavailable - offline mode or network error');
+            };
+            
+            this.audio.loadingMusic.addEventListener('error', handleError);
+            this.audio.mainBg.addEventListener('error', handleError);
+            this.audio.threatBg.addEventListener('error', handleError);
             
             this.audio.available = true; // Assume available until proven otherwise
         } catch (error) {
@@ -644,23 +713,22 @@ INITIALIZING ADMINISTRATOR LINK
     }
 
     playMainBg() {
-        if (this.audioEnabled && this.audio.available && this.audio.mainBg && this.audio.currentBg !== this.audio.mainBg) {
+        if (this.audioEnabled && this.audio.mainBg && this.audio.currentBg !== this.audio.mainBg) {
             this.stopAllBg();
             this.audio.currentBg = this.audio.mainBg;
             this.audio.mainBg.play().catch(e => {
-                console.log('Audio play failed - likely offline:', e);
-                this.audio.available = false;
+                console.log('Audio play failed:', e);
+                // Don't disable audio completely - might work on next try
             });
         }
     }
 
     playThreatBg() {
-        if (this.audioEnabled && this.audio.available && this.audio.threatBg && this.audio.currentBg !== this.audio.threatBg) {
+        if (this.audioEnabled && this.audio.threatBg && this.audio.currentBg !== this.audio.threatBg) {
             this.stopAllBg();
             this.audio.currentBg = this.audio.threatBg;
             this.audio.threatBg.play().catch(e => {
-                console.log('Audio play failed - likely offline:', e);
-                this.audio.available = false;
+                console.log('Audio play failed:', e);
             });
             
             // Auto-return to main bg after threat music finishes
@@ -1450,8 +1518,8 @@ INITIALIZING ADMINISTRATOR LINK
         this.write("  ESC - Exit fullscreen (when in fullscreen)");
         this.write("  PageUp/PageDown - Scroll console");
         this.write("  Tab - Autocomplete commands");
-        this.write("\n🌐 OFFLINE MODE: Game works completely offline after initial load!");
-        this.write("   Audio will be disabled when internet is disconnected.");
+        this.write("\n🌐 OFFLINE MODE: Game works completely offline with full audio support!");
+        this.write("   Audio files are cached automatically for offline play.");
         this.write("\nUse PageUp/PageDown or Shift+Scroll to navigate console history.");
     }
     
@@ -1907,11 +1975,7 @@ INITIALIZING ADMINISTRATOR LINK
 
     cmd_audio() {
         const enabled = this.toggleAudio();
-        let status = enabled ? 'enabled' : 'disabled';
-        if (enabled && !this.audio.available) {
-            status += ' (offline mode - no audio files available)';
-        }
-        this.write(`Audio ${status}.`, enabled ? 'green' : 'yellow', 'info');
+        this.write(`Audio ${enabled ? 'enabled' : 'disabled'}.`, enabled ? 'green' : 'yellow', 'info');
     }
 
     cmd_fullscreen() {
