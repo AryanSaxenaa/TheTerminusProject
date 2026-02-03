@@ -4,7 +4,7 @@ Welcome to **The Terminus Project**, a text-based sci-fi strategy game where you
 
 ##  How to Play
 1. **Launch the Game**: Simply open `index.html` in any modern web browser.
-2. **Interact**: Use the command line interface at the bottom of the screen.
+2. **Interact**: Use the command line interface. The game is designed to be fully **Keyboard Only**—no mouse required.
 3. **Start**: Type `help` to see the list of available commands and begin your journey.
 
 ##  Features
