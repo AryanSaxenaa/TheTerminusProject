@@ -692,7 +692,7 @@
 
       class Game {
         constructor() {
-          this.state = {
+        this.state = {
             turn: 1,
             population: { current: 10, capacity: 20 },
             resources: { food: 50, power: 20, materials: 150, credits: 200 },
@@ -708,228 +708,83 @@
             defense: 0,
             siegeTurnsRemaining: 0,
             allies: {
-              elara: { relationship: 0, lastContact: 0 },
-              unit734: { relationship: 0, lastContact: 0, hasAccess: false },
-              rustDevils: { hostility: 0 },
+                elara: { relationship: 0, lastContact: 0 },
+                unit734: { relationship: 0, lastContact: 0, hasAccess: false },
+                rustDevils: { hostility: 0 }
             },
             terminus: {
-              relays: 0,
-              activated: false,
-              protocols: {
-                renewal: false,
-                transcendence: false,
-                control: false,
-              },
+                relays: 0,
+                activated: false,
+                protocols: { renewal: false, transcendence: false, control: false }
             },
-            famineCounter: 0,
-          };
+            famineCounter: 0
+        };
 
-          this.elements = {
-            console: document.getElementById("console"),
-            input: document.getElementById("input"),
-            turnCounter: document.getElementById("turn-counter"),
-            resourceBars: document.getElementById("resource-bars"),
-            cityArt: document.getElementById("city-art"),
-            alertStatus: document.getElementById("alert-status"),
-          };
+        this.elements = {
+            console: document.getElementById('console'),
+            input: document.getElementById('input'),
+            turnCounter: document.getElementById('turn-counter'),
+            resourceBars: document.getElementById('resource-bars'),
+            cityArt: document.getElementById('city-art'),
+            alertStatus: document.getElementById('alert-status'),
+        };
 
-          // Audio system - with offline fallback
-          this.audio = {
+        // Audio system - with offline fallback
+        this.audio = {
             loadingMusic: null,
             mainBg: null,
             threatBg: null,
             currentBg: null,
-            available: false, // Track if audio is available
-          };
+            available: false // Track if audio is available
+        };
+        
+        // Initialize audio with error handling for offline mode
+        this.initializeAudio();
+        
+        this.audioEnabled = true; // Allow users to toggle audio
 
-          // Initialize audio with error handling for offline mode
-          this.initializeAudio();
+        this.commandHistory = [];
+        this.historyIndex = -1;
 
-          this.audioEnabled = true; // Allow users to toggle audio
-
-          this.commandHistory = [];
-          this.historyIndex = -1;
-
-          // Initialize audio system
-          this.initializeAudio();
-
-          this.DATA = {
+        this.DATA = {
             buildings: {
-              habitat: {
-                name: "Habitat Pod",
-                cost: { materials: 20 },
-                upkeep: { power: 1 },
-                effects: { capacity: 5, credits: 5, materials: 2 },
-                levels: [
-                  { capacity: 5, credits: 5, materials: 2 },
-                  { capacity: 8, power: -1, credits: 8, materials: 3 },
-                  { capacity: 12, power: -2, credits: 12, materials: 5 },
-                ],
-              },
-              hydroponics: {
-                name: "Hydroponics Farm",
-                cost: { materials: 30, power: 5 },
-                upkeep: { power: 2, credits: 2 },
-                effects: { food: 15 },
-                levels: [
-                  { food: 15 },
-                  { food: 25, power: -3 },
-                  { food: 40, power: -4 },
-                ],
-              },
-              fusion: {
-                name: "Fusion Generator",
-                cost: { materials: 80 },
-                upkeep: { credits: 5 },
-                effects: { power: 25 },
-                levels: [{ power: 25 }, { power: 40 }, { power: 60 }],
-              },
-              fabricator: {
-                name: "Material Fabricator",
-                cost: { materials: 60, power: 10 },
-                upkeep: { power: 8 },
-                effects: { materials: 15 },
-                levels: [
-                  { materials: 15 },
-                  { materials: 25 },
-                  { materials: 40 },
-                ],
-              },
-              market: {
-                name: "Trade Hub",
-                cost: { materials: 50, credits: 30 },
-                upkeep: { power: 3 },
-                effects: { credits: 25 },
-                levels: [
-                  { credits: 25 },
-                  { credits: 40 },
-                  { credits: 60, power: -5 },
-                ],
-              },
-              lab: {
-                name: "Research Lab",
-                cost: { materials: 100, power: 15 },
-                upkeep: { credits: 10, power: 8 },
-                effects: { tech: 5 },
-              },
-              turret: {
-                name: "Defense Turret",
-                cost: { materials: 120, power: 20, credits: 150 },
-                upkeep: { power: 8 },
-                effects: { defense: 10 },
-                levels: [{ defense: 10 }, { defense: 20 }, { defense: 35 }],
-              },
-              shield: {
-                name: "Energy Shield",
-                cost: { materials: 200, power: 50, credits: 300 },
-                upkeep: { power: 25 },
-                effects: { defense: 25 },
-                levels: [{ defense: 25 }, { defense: 50 }, { defense: 100 }],
-              },
-              terminus_relay: {
-                name: "Terminus Relay",
-                cost: { materials: 500, power: 100, credits: 1000 },
-                upkeep: { power: 50 },
-                effects: { terminus: 1 },
-                unlocked: false,
-                levels: [{ terminus: 1 }],
-              },
+                'habitat': { name: 'Habitat Pod', cost: { materials: 20 }, upkeep: { power: 1 }, effects: { capacity: 5, credits: 5, materials: 2 }, levels: [ { capacity: 5, credits: 5, materials: 2 }, { capacity: 8, power: -1, credits: 8, materials: 3 }, { capacity: 12, power: -2, credits: 12, materials: 5 } ] },
+                'hydroponics': { name: 'Hydroponics Farm', cost: { materials: 30, power: 5 }, upkeep: { power: 2, credits: 2 }, effects: { food: 15 }, levels: [ { food: 15 }, { food: 25, power: -3 }, { food: 40, power: -4 } ] },
+                'fusion': { name: 'Fusion Generator', cost: { materials: 80 }, upkeep: { credits: 5 }, effects: { power: 25 }, levels: [ { power: 25 }, { power: 40 }, { power: 60 } ] },
+                'fabricator': { name: 'Material Fabricator', cost: { materials: 60, power: 10 }, upkeep: { power: 8 }, effects: { materials: 15 }, levels: [ { materials: 15 }, { materials: 25 }, { materials: 40 } ]},
+                'market': { name: 'Trade Hub', cost: { materials: 50, credits: 30}, upkeep: { power: 3 }, effects: { credits: 25}, levels: [ { credits: 25 }, { credits: 40 }, { credits: 60, power: -5 }]},
+                'lab': { name: 'Research Lab', cost: { materials: 100, power: 15}, upkeep: { credits: 10, power: 8}, effects: { tech: 5 }},
+                'turret': { name: 'Defense Turret', cost: { materials: 120, power: 20, credits: 150}, upkeep: { power: 8 }, effects: { defense: 10 }, levels: [ { defense: 10 }, { defense: 20 }, { defense: 35 } ]},
+                'shield': { name: 'Energy Shield', cost: { materials: 200, power: 50, credits: 300}, upkeep: { power: 25 }, effects: { defense: 25 }, levels: [ { defense: 25 }, { defense: 50 }, { defense: 100 } ]},
+                'terminus_relay': { name: 'Terminus Relay', cost: { materials: 500, power: 100, credits: 1000}, upkeep: { power: 50 }, effects: { terminus: 1 }, unlocked: false, levels: [ { terminus: 1 } ]}
             },
             tech: {
-              advanced_storage: {
-                name: "Advanced Storage",
-                cost: 50,
-                effect: () => {
-                  this.state.storage.food += 200;
-                  this.state.storage.materials += 500;
-                  this.write("Storage capacity increased.", "cyan", "info");
-                },
-              },
-              solar_grid: {
-                name: "Efficient Solar Grid",
-                cost: 75,
-                effect: () => {
-                  this.write("Building power upkeep reduced.", "cyan", "info");
-                  this.state.tech.add("solar_grid_mastery");
-                },
-              },
-              defensive_systems: {
-                name: "Defensive Systems",
-                cost: 100,
-                effect: () => {
-                  this.unlockBuilding("turret");
-                  this.write(
-                    "Turret construction blueprints unlocked.",
-                    "cyan",
-                    "info",
-                  );
-                },
-              },
-              energy_shields: {
-                name: "Energy Shield Technology",
-                cost: 200,
-                effect: () => {
-                  this.unlockBuilding("shield");
-                  this.write(
-                    "Energy shield technology acquired.",
-                    "cyan",
-                    "info",
-                  );
-                },
-              },
-              terminus_protocols: {
-                name: "Terminus Connection Protocols",
-                cost: 500,
-                effect: () => {
-                  this.unlockBuilding("terminus_relay");
-                  this.write(
-                    "CRITICAL: Terminus Relay construction enabled. The endgame approaches.",
-                    "magenta",
-                    "crit",
-                  );
-                },
-              },
+                'advanced_storage': { name: "Advanced Storage", cost: 50, effect: () => { this.state.storage.food += 200; this.state.storage.materials += 500; this.write("Storage capacity increased.", 'cyan', 'info'); } },
+                'solar_grid': { name: "Efficient Solar Grid", cost: 75, effect: () => { this.write("Building power upkeep reduced.", 'cyan', 'info'); this.state.tech.add('solar_grid_mastery'); } },
+                'defensive_systems': { name: "Defensive Systems", cost: 100, effect: () => { this.unlockBuilding('turret'); this.write("Turret construction blueprints unlocked.", 'cyan', 'info'); } },
+                'energy_shields': { name: "Energy Shield Technology", cost: 200, effect: () => { this.unlockBuilding('shield'); this.write("Energy shield technology acquired.", 'cyan', 'info'); } },
+                'terminus_protocols': { name: "Terminus Connection Protocols", cost: 500, effect: () => { this.unlockBuilding('terminus_relay'); this.write("CRITICAL: Terminus Relay construction enabled. The endgame approaches.", 'magenta', 'crit'); } }
             },
             policies: {
-              rations: {
-                name: "Food Rations",
-                effect: "foodConsumption",
-                modifier: 0.75,
-                downside: { happiness: -10 },
-              },
-              double_shifts: {
-                name: "Double Shifts",
-                effect: "materialProd",
-                modifier: 1.5,
-                downside: { happiness: -15, foodConsumption: 1.25 },
-              },
-              martial_law: {
-                name: "Martial Law",
-                effect: "defense",
-                modifier: 2.0,
-                downside: { happiness: -25, credits: -10 },
-              },
-              salvage_ops: {
-                name: "Salvage Operations",
-                effect: "materialBonus",
-                modifier: 10,
-                downside: { happiness: -5 },
-              },
+                'rations': { name: 'Food Rations', effect: 'foodConsumption', modifier: 0.75, downside: { happiness: -10 } },
+                'double_shifts': { name: 'Double Shifts', effect: 'materialProd', modifier: 1.5, downside: { happiness: -15, foodConsumption: 1.25 } },
+                'martial_law': { name: 'Martial Law', effect: 'defense', modifier: 2.0, downside: { happiness: -25, credits: -10 } },
+                'salvage_ops': { name: 'Salvage Operations', effect: 'materialBonus', modifier: 10, downside: { happiness: -5 } }
             },
             art: {
-              loading: [
-                `
+                loading: [
+`
 ████████ ███████ ██████  ███    ███ ██ ███    ██ ██    ██ ███████
-   ██    ██      ██   ██ ████  ████ ██ ████   ██ ██    ██ ██     
-   ██    █████   ██████  ██ ████ ██ ██ ██ ██  ██ ██    ██ ███████
-   ██    ██      ██   ██ ██  ██  ██ ██ ██  ██ ██ ██    ██      ██
-   ██    ███████ ██   ██ ██      ██ ██ ██   ████  ██████  ███████
+   ██     ██       ██   ██ ████  ████ ██ ████   ██ ██    ██ ██     
+   ██     █████    ██████  ██ ████ ██ ██ ██ ██  ██ ██    ██ ███████
+   ██     ██       ██   ██ ██  ██  ██ ██ ██  ██ ██ ██    ██       ██
+   ██     ███████ ██   ██ ██      ██ ██ ██   ████  ██████  ███████
 
     ██████  ██████   ██████       ██ ███████  ██████ ████████    
-    ██   ██ ██   ██ ██    ██      ██ ██      ██         ██       
-    ██████  ██████  ██    ██      ██ █████   ██         ██       
-    ██      ██   ██ ██    ██ ██   ██ ██      ██         ██       
-    ██      ██   ██  ██████   █████  ███████  ██████    ██       
+    ██   ██ ██   ██ ██    ██       ██ ██       ██         ██        
+    ██████  ██████  ██    ██       ██ █████   ██         ██        
+    ██      ██   ██ ██    ██ ██   ██ ██       ██         ██        
+    ██      ██   ██  ██████   █████  ███████  ██████    ██        
 
 
 ════════════════════════════════════════════════
@@ -939,13 +794,13 @@ INITIALIZING ADMINISTRATOR LINK
 ════════════════════════════════════════════════
 
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-▓          ACCESSING TERMINUS         ▓
+▓           ACCESSING TERMINUS         ▓
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓`,
-              ],
-              city: [
-                `
+                ],
+                city: [
+`
 ╔══════════════════════════════════════════════╗
-║         SECTOR-7 FOUNDATION LEVEL            ║
+║          SECTOR-7 FOUNDATION LEVEL           ║
 ╠══════════════════════════════════════════════╣
 ║                                              ║
 ║              ┌─────────────┐                 ║
@@ -961,15 +816,15 @@ INITIALIZING ADMINISTRATOR LINK
 ║                                              ║
 ╚══════════════════════════════════════════════╝`,
 
-                `
+`
 ╔══════════════════════════════════════════════╗
-║         SECTOR-7 GROWING COLONY              ║
+║          SECTOR-7 GROWING COLONY             ║
 ╠══════════════════════════════════════════════╣
 ║                                              ║
-║    ┌──────────┐      ┌─────────────┐         ║
-║    │ TERMINAL │──────│   HABITAT   │         ║
-║    │[ACTIVE]  │      │   [STABLE]  │         ║
-║    └────┬─────┘      └─────────────┘         ║
+║    ┌──────────┐       ┌─────────────┐        ║
+║    │ TERMINAL │──────│   HABITAT    │        ║
+║    │[ACTIVE]  │      │   [STABLE]   │        ║
+║    └────┬─────┘      └─────────────┘        ║
 ║         │                                    ║
 ║    ┌────▼─────┐                              ║
 ║    │  POWER   │                              ║
@@ -983,9 +838,9 @@ INITIALIZING ADMINISTRATOR LINK
 ║                                              ║
 ╚══════════════════════════════════════════════╝`,
 
-                `
+`
 ╔══════════════════════════════════════════════╗
-║         SECTOR-7 ESTABLISHED TOWN            ║
+║          SECTOR-7 ESTABLISHED TOWN           ║
 ╠══════════════════════════════════════════════╣
 ║                                              ║
 ║ ┌────────┐  ┌─────────┐  ┌──────────┐        ║
@@ -994,7 +849,7 @@ INITIALIZING ADMINISTRATOR LINK
 ║ └───┬────┘  └─────────┘  └──────────┘        ║
 ║     │                                        ║
 ║ ┌───▼────┐  ┌─────────┐  ┌──────────┐        ║
-║ │ FUSION │  │   LAB   │  │FABRICATR │        ║
+║ │ FUSION │  │   LAB    │  │FABRICATR │        ║
 ║ │[STABLE]│  │[RESEARCH│  │[PRODUCE] │        ║
 ║ └────────┘  └─────────┘  └──────────┘        ║
 ║                                              ║
@@ -1005,9 +860,9 @@ INITIALIZING ADMINISTRATOR LINK
 ║                                              ║
 ╚══════════════════════════════════════════════╝`,
 
-                `
+`
 ╔══════════════════════════════════════════════╗
-║         SECTOR-7 MEGA-CITY                   ║
+║          SECTOR-7 MEGA-CITY                  ║
 ╠══════════════════════════════════════════════╣
 ║                                              ║
 ║┌────────┐ ┌─────────┐ ┌─────────┐ ┌───────┐  ║
@@ -1025,10 +880,10 @@ INITIALIZING ADMINISTRATOR LINK
 ║        Defenses:   FORTRESS                  ║
 ║        Population: MAXIMUM                   ║
 ║                                              ║
-╚══════════════════════════════════════════════╝`,
-              ],
-              threats: [
-                `
+╚══════════════════════════════════════════════╝`
+                ],
+                threats: [
+`
                     ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
                     ▓    ⚠️  THREAT DETECTED  ⚠️    ▓ 
                     ▓                                ▓  
@@ -1049,9 +904,9 @@ INITIALIZING ADMINISTRATOR LINK
 
                     RUST DEVIL RAIDERS APPROACHING...
                     ESTIMATED TIME TO ARRIVAL: 3 TURNS`,
-                `
+`
                     ████████████████████████████████████
-                    █  🔥 SIEGE IN PROGRESS 🔥        █
+                    █   🔥 SIEGE IN PROGRESS 🔥        █
                     ████████████████████████████████████
 
                       ⚡ DEFENSES UNDER ATTACK ⚡
@@ -1063,23 +918,23 @@ INITIALIZING ADMINISTRATOR LINK
                     ║   │WALLS│  ║████║  │ SIEGE     │ ║
                     ║   └─────┘  ║    ║  │ ENGINES   │ ║
                     ║     ▓▓▓    ║    ║  └───────────┘ ║
-                    ║   SECURE   ║    ║                ║
-                    ║    ZONE    ║    ║   BOMBARDMENT  ║
+                    ║    SECURE  ║    ║                ║
+                    ║     ZONE   ║    ║   BOMBARDMENT  ║
                     ╚══════════════════════════════════╝
 
-                    DAMAGE REPORT: BUILDINGS AT RISK!`,
-              ],
-              victory: [
-                `
+                    DAMAGE REPORT: BUILDINGS AT RISK!`
+                ],
+                victory: [
+`
                     ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-                    ★                                                    ★
-                    ★              VICTORY ACHIEVED!                     ★
-                    ★                                                    ★
+                    ★                                    ★
+                    ★              VICTORY ACHIEVED!     ★
+                    ★                                    ★
                     ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
                     ╔══════════════════════════════════╗
                     ║                                  ║
-                    ║    🏆 SECTOR-7 TRIUMPHANT 🏆    ║
+                    ║    🏆 SECTOR-7 TRIUMPHANT 🏆     ║
                     ║                                  ║
                     ║  The Rust Devils have been       ║
                     ║  repelled! Your city stands      ║
@@ -1089,10 +944,10 @@ INITIALIZING ADMINISTRATOR LINK
                     ║  + Legendary Status              ║
                     ║  + New Trade Routes Opened       ║
                     ║                                  ║
-                    ╚══════════════════════════════════╝`,
-              ],
-              endings: {
-                renewal: `
+                    ╚══════════════════════════════════╝`
+                ],
+                endings: {
+                    renewal: `
                     ╔══════════════════════════════════════════════╗
                     ║                                              ║
                     ║        🌅 PROTOCOL: RENEWAL 🌅              ║
@@ -1108,7 +963,7 @@ INITIALIZING ADMINISTRATOR LINK
                     ║         A NEW DAWN HAS BEGUN.                ║
                     ║                                              ║
                     ╚══════════════════════════════════════════════╝`,
-                transcendence: `
+                    transcendence: `
                     ╔══════════════════════════════════════════════╗
                     ║                                              ║
                     ║      🧠 PROTOCOL: TRANSCENDENCE 🧠          ║
@@ -1121,10 +976,10 @@ INITIALIZING ADMINISTRATOR LINK
                     ║  But what does it mean to be human           ║
                     ║  when flesh becomes mere memory?             ║
                     ║                                              ║
-                    ║     WELCOME TO THE NEW NEXUS.                ║
+                    ║      WELCOME TO THE NEW NEXUS.               ║
                     ║                                              ║
                     ╚══════════════════════════════════════════════╝`,
-                control: `
+                    control: `
                     ╔══════════════════════════════════════════════╗
                     ║                                              ║
                     ║        👑 PROTOCOL: CONTROL 👑              ║
@@ -1139,19 +994,78 @@ INITIALIZING ADMINISTRATOR LINK
                     ║                                              ║
                     ║        YOU ARE THE TERMINUS.                 ║
                     ║                                              ║
-                    ╚══════════════════════════════════════════════╝`,
-              },
+                    ╚══════════════════════════════════════════════╝`
+                }
             },
-          };
-          this.buildingCounter = 0;
-          this.techPoints = 0;
-        }
+        };
+        this.buildingCounter = 0;
+        this.techPoints = 0;
+    }
 
         unlockBuilding(type) {
           if (this.DATA.buildings[type]) {
             this.DATA.buildings[type].unlocked = true;
           }
         }
+
+saveGame() {
+        try {
+            // Convert Set objects to arrays for JSON serialization
+            const saveData = {
+                state: {
+                    ...this.state,
+                    tech: Array.from(this.state.tech),
+                    policies: Array.from(this.state.policies),
+                    storyFlags: Array.from(this.state.storyFlags)
+                },
+                buildingCounter: this.buildingCounter,
+                techPoints: this.techPoints,
+                commandHistory: this.commandHistory,
+                audioEnabled: this.audioEnabled
+            };
+            
+            localStorage.setItem('terminus_save_data', JSON.stringify(saveData));
+            this.write("Game saved successfully.", 'green', 'info');
+        } catch (error) {
+            console.error('Save failed:', error);
+            this.write("Save failed: " + error.message, 'red', 'warn');
+        }
+    }
+
+loadGame() {
+        try {
+            const saveData = localStorage.getItem('terminus_save_data');
+            if (!saveData) {
+                this.write("No saved game found.", 'yellow', 'info');
+                return false;
+            }
+            
+            const parsed = JSON.parse(saveData);
+            
+            // Restore state and convert arrays back to Sets
+            this.state = {
+                ...parsed.state,
+                tech: new Set(parsed.state.tech || []),
+                policies: new Set(parsed.state.policies || []),
+                storyFlags: new Set(parsed.state.storyFlags || [])
+            };
+            
+            // Restore additional state variables
+            this.buildingCounter = parsed.buildingCounter || 0;
+            this.techPoints = parsed.techPoints || 0;
+            this.commandHistory = parsed.commandHistory || [];
+            this.audioEnabled = parsed.audioEnabled !== undefined ? parsed.audioEnabled : true;
+            
+            // Update UI immediately
+            this.updateUI();
+            this.write("Game loaded successfully.", 'green', 'info');
+            return true;
+        } catch (error) {
+            console.error('Load failed:', error);
+            this.write("Load failed: Save data may be corrupted.", 'red', 'warn');
+            return false;
+        }
+    }
 
         // --- AUDIO SYSTEM ---
         playLoadingMusic() {
@@ -1376,100 +1290,87 @@ INITIALIZING ADMINISTRATOR LINK
         }
 
         async init() {
-          await this.showLoadingScreen();
-          this.elements.gameContainer =
-            document.getElementById("game-container");
-          this.elements.gameContainer.classList.add("loaded");
-
-          // Setup input field
-          const prompt = document.getElementById("prompt");
-          prompt.innerHTML =
-            '<span style="color: var(--glow-color);">ADMIN@SECTOR-7: </span><input type="text" id="input" placeholder="Type \'help\' for commands..." /><span id="cursor"></span>';
-          this.elements.input = document.getElementById("input");
-
-          this.elements.input.addEventListener(
-            "keydown",
-            this.handleInput.bind(this),
-          );
-          this.elements.input.addEventListener(
-            "keydown",
-            this.handleAutocomplete.bind(this),
-          );
-
-          // Add keyboard scrolling for console
-          this.elements.console.addEventListener(
-            "keydown",
-            this.handleConsoleKeys.bind(this),
-          );
-
-          // Make console focusable for keyboard navigation
-          this.elements.console.tabIndex = 0;
-
-          // Global keyboard handler for PageUp/PageDown and fullscreen
-          document.addEventListener("keydown", (e) => {
-            if (e.key === "PageUp" || e.key === "PageDown") {
-              this.handleConsoleKeys(e);
+        await this.showLoadingScreen();
+        this.elements.gameContainer = document.getElementById('game-container');
+        this.elements.gameContainer.classList.add('loaded');
+        
+        // Load saved game data first
+        const gameLoaded = this.loadGame();
+        
+        // Setup input field
+        const prompt = document.getElementById('prompt');
+        prompt.innerHTML = '<span style="color: var(--glow-color);">ADMIN@SECTOR-7: </span><input type="text" id="input" placeholder="Type \'help\' for commands..." /><span id="cursor"></span>';
+        this.elements.input = document.getElementById('input');
+        
+        this.elements.input.addEventListener('keydown', this.handleInput.bind(this));
+        this.elements.input.addEventListener('keydown', this.handleAutocomplete.bind(this));
+        
+        // Add keyboard scrolling for console
+        this.elements.console.addEventListener('keydown', this.handleConsoleKeys.bind(this));
+        
+        // Make console focusable for keyboard navigation
+        this.elements.console.tabIndex = 0;
+        
+        // Setup auto-save triggers
+        // Auto-save every 30 seconds
+        setInterval(() => {
+            if (!this.state.gameOver) {
+                this.saveGame();
+            }
+        }, 30000);
+        
+        // Save before page unload
+        window.addEventListener('beforeunload', () => {
+            if (!this.state.gameOver) {
+                this.saveGame();
+            }
+        });
+        
+        // Global keyboard handler for PageUp/PageDown and fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'PageUp' || e.key === 'PageDown') {
+                this.handleConsoleKeys(e);
             }
             // F11 for fullscreen toggle (prevent default browser behavior)
-            if (e.key === "F11") {
-              e.preventDefault();
-              this.toggleFullscreen();
+            if (e.key === 'F11') {
+                e.preventDefault();
+                this.toggleFullscreen();
             }
             // ESC to exit fullscreen if in fullscreen mode
-            if (e.key === "Escape" && document.fullscreenElement) {
-              e.preventDefault();
-              this.toggleFullscreen();
+            if (e.key === 'Escape' && document.fullscreenElement) {
+                e.preventDefault();
+                this.toggleFullscreen();
             }
-          });
-
-          this.write(":: Booting up Administrator terminal ::", "cyan");
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          this.write(
-            ":: Connection established. Sector-7 archives loaded. ::",
-            "cyan",
-          );
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          this.write(
-            ":: CRITICAL: Settlement population at minimum viable levels ::",
-            "yellow",
-          );
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          this.write(
-            "Welcome, Administrator. Your objective is to rebuild this settlement and activate the Terminus.",
-            "green",
-          );
-          this.write(
-            "The fate of humanity rests in your hands. Type 'help' for commands.",
-            "green",
-          );
-          this.write("", "");
-          this.write(
-            "=== THE TERMINUS PROJECT: BEGIN RECONSTRUCTION ===",
-            "magenta",
-          );
-          this.write("", "");
-          this.write(
-            "🎯 SURVIVAL TIP: Build HABITAT first for income, then MARKET for credits!",
-            "yellow",
-          );
-          this.write(
-            "⚠️  Avoid building hydroponics first - they drain credits without income!",
-            "yellow",
-          );
-          this.write("", "");
-          this.write("Starting Resources:", "cyan");
-          this.write(
-            `  Food: ${Math.floor(this.state.resources.food)} | Power: ${Math.floor(this.state.resources.power)} | Materials: ${Math.floor(this.state.resources.materials)} | Credits: ${Math.floor(this.state.resources.credits)}`,
-            "white",
-          );
-          this.write(
-            "Type 'resources' anytime to see current levels and income/upkeep.",
-            "gray",
-          );
-
-          this.updateUI();
-          this.elements.input.focus();
+        });
+        
+        // Only show intro messages if no game was loaded
+        if (!gameLoaded) {
+            this.write(":: Booting up Administrator terminal ::", 'cyan');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            this.write(":: Connection established. Sector-7 archives loaded. ::", 'cyan');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            this.write(":: CRITICAL: Settlement population at minimum viable levels ::", 'yellow');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            this.write("Welcome, Administrator. Your objective is to rebuild this settlement and activate the Terminus.", 'green');
+            this.write("The fate of humanity rests in your hands. Type 'help' for commands.", 'green');
+            this.write("", '');
+            this.write("=== THE TERMINUS PROJECT: BEGIN RECONSTRUCTION ===", 'magenta');
+            this.write("", '');
+            this.write("🎯 SURVIVAL TIP: Build HABITAT first for income, then MARKET for credits!", 'yellow');
+            this.write("⚠️  Avoid building hydroponics first - they drain credits without income!", 'yellow'); 
+            this.write("", '');
+            this.write("Starting Resources:", 'cyan');
+            this.write(`  Food: ${Math.floor(this.state.resources.food)} | Power: ${Math.floor(this.state.resources.power)} | Materials: ${Math.floor(this.state.resources.materials)} | Credits: ${Math.floor(this.state.resources.credits)}`, 'white');
+            this.write("Type 'resources' anytime to see current levels and income/upkeep.", 'gray');
+        } else {
+            this.write(":: Game restored from save data ::", 'cyan');
+            this.write("Continue your reconstruction of Sector-7.", 'green');
+            this.write("", '');
         }
+        
+        this.updateUI();
+        this.elements.input.focus();
+    }
 
         async showLoadingScreen() {
           const artEl = document.getElementById("loading-art");
@@ -1562,16 +1463,15 @@ INITIALIZING ADMINISTRATOR LINK
                 this.commandHistory.unshift(command);
                 this.historyIndex = -1;
                 this.parseCommand(command);
-              }
-              this.elements.input.value = "";
-              break;
-            case "ArrowUp":
-              e.preventDefault();
-              if (this.historyIndex < this.commandHistory.length - 1) {
-                this.historyIndex++;
-                this.elements.input.value =
-                  this.commandHistory[this.historyIndex];
-              }
+                }
+                this.elements.input.value = "";
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                if (this.historyIndex < this.commandHistory.length - 1) {
+                    this.historyIndex++;
+                    this.elements.input.value = this.commandHistory[this.historyIndex];
+                }
               break;
             case "ArrowDown":
               e.preventDefault();
@@ -1676,69 +1576,44 @@ INITIALIZING ADMINISTRATOR LINK
 
           switch (cmd) {
             case "help":
-              this.cmd_help();
-              break;
-            case "status":
-              this.cmd_status();
-              break;
-            case "resources":
-              this.cmd_resources();
-              break;
-            case "pass":
-              this.cmd_pass();
-              break;
-            case "emergency":
-              this.cmd_emergency();
-              break;
-            case "build":
-              this.cmd_build(args);
-              break;
-            case "upgrade":
-              this.cmd_upgrade(args);
-              break;
-            case "policy":
-              this.cmd_policy(args);
-              break;
-            case "research":
-              this.cmd_research(args);
-              break;
-            case "collective":
-              this.cmd_collective(args);
-              break;
-            case "tribute":
-              this.cmd_tribute(args);
-              break;
-            case "trade":
-              this.cmd_trade(args);
-              break;
-            case "propose":
-              this.cmd_propose(args);
-              break;
-            case "contact":
-              this.cmd_contact(args);
-              break;
-            case "terminus":
-              this.cmd_terminus(args);
-              break;
-            case "ending":
-              this.cmd_ending(args);
-              break;
-            case "audio":
-              this.cmd_audio();
-              break;
-            case "fullscreen":
-              this.cmd_fullscreen();
-              break;
-            case "restart":
-              this.cmd_restart();
-              break;
-            default:
-              if (this.state.gameOver) {
-                this.write(
-                  "Game Over. Type 'restart' to play again or 'help' for commands.",
-                  "yellow",
-                );
-              } else {
+              this.cmd_help(); break;
+            case 'status': this.cmd_status(); break;
+            case 'resources': this.cmd_resources(); break;
+            case 'pass': this.cmd_pass(); break;
+            case 'emergency': this.cmd_emergency(); break;
+            case 'build': this.cmd_build(args); break;
+            case 'upgrade': this.cmd_upgrade(args); break;
+            case 'policy': this.cmd_policy(args); break;
+            case 'research': this.cmd_research(args); break;
+            case 'collective': this.cmd_collective(args); break;
+            case 'tribute': this.cmd_tribute(args); break;
+            case 'trade': this.cmd_trade(args); break;
+            case 'propose': this.cmd_propose(args); break;
+            case 'contact': this.cmd_contact(args); break;
+            case 'terminus': this.cmd_terminus(args); break;
+            case 'ending': this.cmd_ending(args); break;
+            case 'audio': this.cmd_audio(); break;
+            case 'fullscreen': this.cmd_fullscreen(); break;
+            case 'restart': this.cmd_restart(); break;
+            case 'save': this.cmd_save(); break;
+            case 'reset': this.cmd_reset(); break;
+            default: 
+                if (this.state.gameOver) {
+                    this.write("Game Over. Type 'restart' to play again or 'help' for commands.", 'yellow');
+                }
+
+cmd_save(); break;
+            case 'reset': this.cmd_reset(); break;
+            default: 
+                if (this.state.gameOver) {
+                    this.write("Game Over. Type 'restart' to play again or 'help' for commands.", 'yellow');
+                }
+
+cmd_reset(); break;
+            default: 
+                if (this.state.gameOver) {
+                    this.write("Game Over. Type 'restart' to play again or 'help' for commands.", 'yellow');
+                } else {
                 this.write(`Error: command '${cmd}' not recognized.`, "red");
               }
           }
