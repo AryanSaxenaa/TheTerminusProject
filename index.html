@@ -1,285 +1,604 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>ASCII Empire v5.0 - The Terminus Project</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <!-- Preload audio files for offline caching -->
-  <link rel="preload" href="GameLoading.mp3" as="audio" type="audio/mpeg">
-  <link rel="preload" href="MainBgNormal.mp3" as="audio" type="audio/mpeg">
-  <link rel="preload" href="SecondaryBgWhenThingsGoWrong.mp3" as="audio" type="audio/mpeg">
-  <style>
-    /* FONT & BASE SETUP */
-    @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
-    :root {
-      --glow-color: #00ffff;
-      --primary-color: #00ff00;
-      --background-color: #020408;
-      --dark-background: #010204;
-      --border-color: #00ff0044;
-      --text-color-dim: #888;
-    }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    html, body { height:100%; overflow:hidden; }
-    body {
-      background: var(--dark-background);
-      color: var(--primary-color);
-      font-family: 'Roboto Mono', monospace;
-      font-size: 16px;
-      font-variant-ligatures: none;
-      font-feature-settings: "liga" 0;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <title>ASCII Empire v5.0 - The Terminus Project</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <!-- Preload audio files for offline caching -->
+    <link rel="preload" href="GameLoading.mp3" as="audio" type="audio/mpeg" />
+    <link rel="preload" href="MainBgNormal.mp3" as="audio" type="audio/mpeg" />
+    <link
+      rel="preload"
+      href="SecondaryBgWhenThingsGoWrong.mp3"
+      as="audio"
+      type="audio/mpeg"
+    />
+    <style>
+      /* FONT & BASE SETUP */
+      @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap");
+      :root {
+        --glow-color: #00ffff;
+        --primary-color: #00ff00;
+        --background-color: #020408;
+        --dark-background: #010204;
+        --border-color: #00ff0044;
+        --text-color-dim: #888;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      body {
+        background: var(--dark-background);
+        color: var(--primary-color);
+        font-family: "Roboto Mono", monospace;
+        font-size: 16px;
+        font-variant-ligatures: none;
+        font-feature-settings: "liga" 0;
+      }
 
-    /* LOADING SCREEN */
-    #loading-screen {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: #000;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      z-index: 10000; transition: opacity 1s 1s ease-out;
-    }
-    #loading-art { 
-        white-space: pre; 
-        font-size: 0.85em; 
-        text-align: center; 
+      /* LOADING SCREEN */
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        transition: opacity 1s 1s ease-out;
+      }
+      #loading-art {
+        white-space: pre;
+        /* Increased from 1.4vw to 1.7vw so it's bigger but still safe */
+        font-size: min(1.7vw, 11px);
+        line-height: 1;
+        text-align: center;
         color: var(--glow-color);
-        font-family: 'Courier New', 'Lucida Console', monospace;
+        font-family: "Courier New", "Lucida Console", monospace;
         text-shadow: 0 0 10px var(--glow-color);
-        line-height: 1.2;
-        letter-spacing: 1px;
-    }
-    .loading-text { margin-top: 1.5rem; letter-spacing: 2px; }
-    .loading-text .char { display: inline-block; opacity: 0; animation: fadeInChar 0.1s forwards; }
+      }
 
-    /* GAME GRID LAYOUT */
-    #game-container {
-      visibility: hidden;
-      display: grid;
-      grid-template: "header header header" 50px
-                     "main status resources" 1fr
-                     "footer footer footer" 40px / 1fr 350px 280px;
-      gap: 8px; padding: 8px; height: 100vh;
-      opacity: 0;
-    }
-    #game-container.loaded { visibility: visible; opacity: 1; transition: opacity 0.5s ease-in; }
+      .loading-text .char {
+        display: inline-block;
+        opacity: 0;
+        animation: fadeInChar 0.1s forwards;
+      }
 
-    /* SHARED PANEL STYLES */
-    .panel {
-      background: var(--background-color);
-      border: 1px solid var(--border-color);
-      box-shadow: 0 0 10px var(--glow-color) inset;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .panel-header {
-      padding: 0.5rem 1rem;
-      text-align: center; font-weight: 700;
-      background: var(--border-color);
-      color: var(--glow-color);
-      letter-spacing: 2px; text-shadow: 0 0 5px var(--glow-color);
-    }
-    /* SCANLINE EFFECT */
-    .panel::after {
-      content: ''; position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-      background: linear-gradient(to bottom, transparent 50%, #00000033 51%);
-      background-size: 100% 4px;
-      animation: scanlines 10s linear infinite;
-    }
-    @keyframes scanlines { from { background-position-y: 0; } to { background-position-y: 200px; } }
+      /* GAME GRID LAYOUT */
+      #game-container {
+        display: none; /* 👈 KEY FIX */
+        grid-template:
+          "header header header" 50px
+          "main status resources" 1fr
+          "footer footer footer" 40px / 1fr 350px 280px;
+        gap: 8px;
+        padding: 8px;
+        height: 100vh;
+      }
 
-    /* HEADER */
-    header { grid-area: header; }
+      #game-container.loaded {
+        visibility: visible;
+        opacity: 1;
+        transition: opacity 0.5s ease-in;
+        display: grid;
+      }
 
-    /* MAIN CONSOLE */
-    main { grid-area: main; }
-    #console { 
-        flex-grow: 1; 
-        overflow-y: auto; 
-        padding: 1rem; 
+      /* SHARED PANEL STYLES */
+      .panel {
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 0 10px var(--glow-color) inset;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .panel-header {
+        padding: 0.5rem 1rem;
+        text-align: center;
+        font-weight: 700;
+        background: var(--border-color);
+        color: var(--glow-color);
+        letter-spacing: 2px;
+        text-shadow: 0 0 5px var(--glow-color);
+      }
+      /* SCANLINE EFFECT */
+      .panel::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        background: linear-gradient(to bottom, transparent 50%, #00000033 51%);
+        background-size: 100% 4px;
+        animation: scanlines 10s linear infinite;
+      }
+      @keyframes scanlines {
+        from {
+          background-position-y: 0;
+        }
+        to {
+          background-position-y: 200px;
+        }
+      }
+
+      /* HEADER */
+      header {
+        grid-area: header;
+      }
+
+      /* MAIN CONSOLE */
+      main {
+        grid-area: main;
+      }
+      #console {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 1rem;
         scroll-behavior: smooth;
-        max-height: calc(100vh - 150px);
-    }
-    #console:focus {
+        max-height: none;
+        height: auto;
+      }
+      #console:focus {
         outline: 1px solid var(--glow-color);
-    }
-    #console .log-line { display: block; white-space: pre-wrap; margin-bottom: 0.5em; opacity: 0; animation: fadeInLine 0.2s forwards; }
-    #command-interface { padding: 0.5rem; background: var(--dark-background); border-top: 1px solid var(--border-color); }
-    #prompt { display: flex; align-items: center; }
-    #input { flex:1; background:transparent; border:none; color:var(--primary-color); font-family:inherit; font-size:inherit; outline:none; }
-    #input::placeholder { color: var(--text-color-dim); }
-    #cursor { width: 1ch; height: 1.2em; background: var(--primary-color); animation: blink 1s step-end infinite; }
+      }
+      #console .log-line {
+        display: block;
+        white-space: pre-wrap;
+        margin-bottom: 0.5em;
+        opacity: 0;
+        animation: fadeInLine 0.2s forwards;
+      }
+      #command-interface {
+        padding: 0.5rem;
+        background: var(--dark-background);
+        border-top: 1px solid var(--border-color);
+      }
+      #prompt {
+        display: flex;
+        align-items: center;
+      }
+      #input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--primary-color);
+        font-family: inherit;
+        font-size: inherit;
+        outline: none;
+      }
+      #input::placeholder {
+        color: var(--text-color-dim);
+      }
+      #cursor {
+        width: 1ch;
+        height: 1.2em;
+        background: var(--primary-color);
+        animation: blink 1s step-end infinite;
+      }
 
-    /* STATUS PANEL */
-    #status-panel { grid-area: status; min-width: 350px; }
-    #city-art { 
-        padding: 0.8rem; 
-        text-align: left; 
-        white-space: pre; 
-        color: var(--glow-color); 
-        font-size: 0.65em; 
-        overflow: hidden; 
-        line-height: 1.2; 
-        font-family: 'Courier New', 'Lucida Console', monospace;
+      /* STATUS PANEL */
+      #status-panel {
+        grid-area: status;
+        min-width: 350px;
+      }
+      #city-art {
+        padding: 0.8rem;
+        text-align: left;
+        white-space: pre;
+        color: var(--glow-color);
+        font-size: 0.65em;
+        overflow: hidden;
+        line-height: 1.2;
+        font-family: "Courier New", "Lucida Console", monospace;
         letter-spacing: 0;
         word-spacing: 0;
-    }
+      }
 
-    /* RESOURCES PANEL */
-    #resources-panel { grid-area: resources; min-width: 280px; }
-    .content { padding: 0.8rem; overflow-y: auto; }
-    .resource-bar { margin-bottom: 1rem; }
-    .resource-title { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 0.3rem; font-size: 0.9em; }
-    .resource-progress { height: 0.8rem; background: #00ff0022; border: 1px solid var(--border-color); padding: 1px; }
-    .resource-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #008888, var(--glow-color)); transition: width 0.5s ease; box-shadow: 0 0 5px var(--glow-color); }
-    .resource-fill.low { background: linear-gradient(90deg, #aa4400, #ff8800); }
+      #city-art,
+      #loading-art {
+        max-width: 100%;
+        overflow-x: auto;
+        font-size: clamp(0.55em, 2.5vw, 0.8em);
+      }
 
-    /* FOOTER */
-    footer { grid-area: footer; }
-    #footer-info { display:flex; justify-content:space-between; align-items: center; padding: 0 1rem; height: 100%;}
-    #turn-counter.highlight { animation: pulse-yellow 1s; }
+      /* RESOURCES PANEL */
+      #resources-panel {
+        grid-area: resources;
+        min-width: 280px;
+      }
+      .content {
+        padding: 0.8rem;
+        overflow-y: auto;
+      }
+      .resource-bar {
+        margin-bottom: 1rem;
+      }
+      .resource-title {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
+        font-size: 0.9em;
+      }
+      .resource-progress {
+        height: 0.8rem;
+        background: #00ff0022;
+        border: 1px solid var(--border-color);
+        padding: 1px;
+      }
+      .resource-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #008888, var(--glow-color));
+        transition: width 0.5s ease;
+        box-shadow: 0 0 5px var(--glow-color);
+      }
+      .resource-fill.low {
+        background: linear-gradient(90deg, #aa4400, #ff8800);
+      }
 
-    /* TEXT COLORS & ANIMATIONS */
-    .cyan { color: #00ffff; } .yellow { color: #ffff00; } .red { color: #ff4444; }
-    .green { color: #00ff00; } .gray { color: #888; } .magenta { color: #ff44ff; }
-    .white { color: #ffffff; }
-    .notification { padding: 0.5em; border-left: 3px solid; margin: 0.5em 0; }
-    .notif-info { border-color: var(--glow-color); background: #00ffff11; }
-    .notif-warn { border-color: #ffff00; background: #ffff0011; }
-    .notif-crit { border-color: #ff4444; background: #ff444411; }
+      /* FOOTER */
+      footer {
+        grid-area: footer;
+      }
+      #footer-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 1rem;
+        height: 100%;
+      }
+      #turn-counter.highlight {
+        animation: pulse-yellow 1s;
+      }
 
-    /* Enhanced animations */
-    @keyframes fadeInChar { to { opacity: 1; } }
-    @keyframes blink { 50% { opacity: 0; } }
-    @keyframes fadeInLine { to { opacity: 1; } }
-    @keyframes pulse-yellow { 0%,100%{color:var(--primary-color);} 50%{color:#ffff00;text-shadow:0 0 5px #ffff00;} }
-    @keyframes pulse-red { 0%,100%{color:#ff4444;} 50%{color:#ff8888;text-shadow:0 0 10px #ff4444;} }
-    @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-2px);} 75%{transform:translateX(2px);} }
+      /* TEXT COLORS & ANIMATIONS */
+      .cyan {
+        color: #00ffff;
+      }
+      .yellow {
+        color: #ffff00;
+      }
+      .red {
+        color: #ff4444;
+      }
+      .green {
+        color: #00ff00;
+      }
+      .gray {
+        color: #888;
+      }
+      .magenta {
+        color: #ff44ff;
+      }
+      .white {
+        color: #ffffff;
+      }
+      .notification {
+        padding: 0.5em;
+        border-left: 3px solid;
+        margin: 0.5em 0;
+      }
+      .notif-info {
+        border-color: var(--glow-color);
+        background: #00ffff11;
+      }
+      .notif-warn {
+        border-color: #ffff00;
+        background: #ffff0011;
+      }
+      .notif-crit {
+        border-color: #ff4444;
+        background: #ff444411;
+      }
 
-    /* Threat and victory states */
-    .threat-mode { animation: pulse-red 2s infinite; }
-    .victory-mode { color: #00ff00; text-shadow: 0 0 15px #00ff00; }
-    .terminus-mode { 
+      /* Enhanced animations */
+      @keyframes fadeInChar {
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+      @keyframes fadeInLine {
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes pulse-yellow {
+        0%,
+        100% {
+          color: var(--primary-color);
+        }
+        50% {
+          color: #ffff00;
+          text-shadow: 0 0 5px #ffff00;
+        }
+      }
+      @keyframes pulse-red {
+        0%,
+        100% {
+          color: #ff4444;
+        }
+        50% {
+          color: #ff8888;
+          text-shadow: 0 0 10px #ff4444;
+        }
+      }
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-2px);
+        }
+        75% {
+          transform: translateX(2px);
+        }
+      }
+
+      /* Threat and victory states */
+      .threat-mode {
+        animation: pulse-red 2s infinite;
+      }
+      .victory-mode {
+        color: #00ff00;
+        text-shadow: 0 0 15px #00ff00;
+      }
+      .terminus-mode {
         background: linear-gradient(45deg, #001122, #000066, #001122);
         animation: terminus-pulse 3s infinite;
-    }
+      }
 
-    @keyframes terminus-pulse {
-        0%, 100% { background: linear-gradient(45deg, #001122, #000066, #001122); }
-        50% { background: linear-gradient(45deg, #002244, #0000aa, #002244); }
-    }
+      @keyframes terminus-pulse {
+        0%,
+        100% {
+          background: linear-gradient(45deg, #001122, #000066, #001122);
+        }
+        50% {
+          background: linear-gradient(45deg, #002244, #0000aa, #002244);
+        }
+      }
 
-    /* Loading screen enhancements */
-    #loading-screen {
-        position: fixed; top: 0; left: 0;
-        width: 100%; height: 100%;
-        background: radial-gradient(ellipse at center, #000022 0%, #000000 100%);
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
-        z-index: 10000; 
-        transition: opacity 1s 1s ease-out;
-    }
-    
-    #loading-art { 
-        white-space: pre; 
-        font-size: 0.8em; 
-        text-align: center; 
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        padding: 1rem;
+        box-sizing: border-box;
+
+        background: radial-gradient(
+          ellipse at center,
+          #000022 0%,
+          #000000 100%
+        );
+
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        overflow: hidden;
+      }
+
+      #loading-art {
+        white-space: pre;
+
+        font-size: min(1.4vw, 10px);
+        line-height: 1;
+        text-align: center;
         color: var(--glow-color);
+        font-family: "Courier New", "Lucida Console", monospace;
         text-shadow: 0 0 10px var(--glow-color);
-        animation: loading-glow 2s infinite alternate;
-    }
+      }
 
-    @keyframes loading-glow {
-        from { text-shadow: 0 0 10px var(--glow-color); }
-        to { text-shadow: 0 0 20px var(--glow-color), 0 0 30px var(--glow-color); }
-    }
+      .loading-text {
+        margin-top: 2rem;
+        letter-spacing: 2px;
 
-    .loading-text { 
-        margin-top: 1.5rem; 
-        letter-spacing: 3px; 
-        font-size: 1.1em;
+        font-size: clamp(12px, 3vw, 18px);
+
+        text-align: center;
         color: var(--primary-color);
-    }
-    .loading-text .char { 
-        display: inline-block; 
-        opacity: 0; 
-        animation: fadeInChar 0.1s forwards; 
-    }
 
-    /* FULLSCREEN SUPPORT */
-    :fullscreen {
+        word-break: break-all;
+        white-space: normal;
+        max-width: 90%;
+      }
+
+      @keyframes loading-glow {
+        from {
+          text-shadow: 0 0 10px var(--glow-color);
+        }
+        to {
+          text-shadow:
+            0 0 20px var(--glow-color),
+            0 0 30px var(--glow-color);
+        }
+      }
+
+      .loading-text .char {
+        display: inline-block;
+        opacity: 0;
+        animation: fadeInChar 0.1s forwards;
+      }
+
+      /* FULLSCREEN SUPPORT */
+      :fullscreen {
         background: var(--dark-background);
-    }
-    :-webkit-full-screen {
+      }
+      :-webkit-full-screen {
         background: var(--dark-background);
-    }
-    :-moz-full-screen {
+      }
+      :-moz-full-screen {
         background: var(--dark-background);
-    }
-    
-    /* Ensure game container fills fullscreen properly */
-    html:fullscreen #game-container,
-    html:-webkit-full-screen #game-container,
-    html:-moz-full-screen #game-container {
+      }
+
+      html:fullscreen #game-container,
+      html:-webkit-full-screen #game-container,
+      html:-moz-full-screen #game-container {
         height: 100vh;
         width: 100vw;
-    }
-  </style>
-</head>
-<body>
+      }
 
-  <div id="loading-screen">
-    <div id="loading-art"></div>
-    <div class="loading-text" id="loading-text"></div>
-  </div>
+      @media (max-width: 1200px) and (min-width: 901px) {
+        #game-container {
+          grid-template:
+            "header header" 50px
+            "main status" 1fr
+            "resources resources" auto
+            "footer footer" 40px
+            / 1fr 320px;
+        }
 
-  <div id="game-container">
-    <header class="panel">
-      <h1 class="panel-header">TERMINUS PROJECT :: SECTOR-7 ADMIN</h1>
-    </header>
+        #resources-panel {
+          min-width: unset;
+        }
+      }
 
-    <main class="panel">
-      <div id="console"></div>
-      <div id="command-interface">
-        <div id="prompt">
-          <span>&gt;&nbsp;</span>
-          <input id="input" autocomplete="off" placeholder="Type 'help' to initialize system..." />
-          <div id="cursor"></div>
+      @media (max-width: 900px) {
+        #game-container {
+          /* Stack vertically */
+          grid-template:
+            "header" auto
+            "main" 1fr
+            "status" auto
+            "resources" auto
+            "footer" auto
+            / 1fr;
+
+          /* Allow scrolling */
+          height: auto;
+          min-height: 100vh;
+          padding-bottom: 20px;
+        }
+
+        /* Reset widths */
+        #status-panel,
+        #resources-panel {
+          min-width: unset;
+          width: 100%;
+        }
+
+        /* Main area sizing */
+        main {
+          min-height: 40vh;
+        }
+
+        /* Console sizing */
+        #console {
+          min-height: 300px;
+          max-height: 60vh;
+        }
+      }
+
+      @media (max-width: 480px) {
+        html,
+        body {
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
+
+        #game-container {
+          height: auto;
+          min-height: 100vh;
+          padding: 6px;
+        }
+
+        #console {
+          max-height: none;
+          min-height: 45vh;
+        }
+
+        #city-art {
+          font-size: clamp(0.45em, 3.2vw, 0.7em);
+          max-width: 100%;
+          overflow-x: auto;
+        }
+
+        .panel {
+          box-shadow: 0 0 5px var(--glow-color) inset;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-screen">
+      <div id="loading-art"></div>
+      <div class="loading-text" id="loading-text"></div>
+    </div>
+
+    <div id="game-container">
+      <header class="panel">
+        <h1 class="panel-header">TERMINUS PROJECT :: SECTOR-7 ADMIN</h1>
+      </header>
+
+      <main class="panel">
+        <div id="console"></div>
+        <div id="command-interface">
+          <div id="prompt">
+            <span>&gt;&nbsp;</span>
+            <input
+              id="input"
+              autocomplete="off"
+              placeholder="Type 'help' to initialize system..."
+            />
+            <div id="cursor"></div>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
 
-    <aside id="status-panel" class="panel">
-      <h2 class="panel-header">SECTOR-7 STATUS</h2>
-      <div class="content">
+      <aside id="status-panel" class="panel">
+        <h2 class="panel-header">SECTOR-7 STATUS</h2>
+        <div class="content">
           <div id="city-art"></div>
           <div id="city-stats"></div>
-      </div>
-    </aside>
-
-    <aside id="resources-panel" class="panel">
-      <h2 class="panel-header">RESOURCE MATRIX</h2>
-      <div class="content" id="resource-bars"></div>
-    </aside>
-
-    <footer class="panel">
-        <div id="footer-info">
-            <div id="turn-counter">TURN: 000</div>
-            <div>[ TERMINUS PROJECT :: SECTOR-7 RECONSTRUCTION ]</div>
-            <div id="alert-status">SYSTEMS: NOMINAL</div>
         </div>
-    </footer>
-  </div>
+      </aside>
 
-<script>
-// Register Service Worker for offline audio caching
-if ('serviceWorker' in navigator) {
-    // Inline Service Worker for single-file compliance
-    const swCode = `
+      <aside id="resources-panel" class="panel">
+        <h2 class="panel-header">RESOURCE MATRIX</h2>
+        <div class="content" id="resource-bars"></div>
+      </aside>
+
+      <footer class="panel">
+        <div id="footer-info">
+          <div id="turn-counter">TURN: 000</div>
+          <div>[ TERMINUS PROJECT :: SECTOR-7 RECONSTRUCTION ]</div>
+          <div id="alert-status">SYSTEMS: NOMINAL</div>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      // Register Service Worker for offline audio caching
+      if ("serviceWorker" in navigator) {
+        // Inline Service Worker for single-file compliance
+        const swCode = `
         const CACHE_NAME = 'terminus-audio-v2';
         const urlsToCache = [
             './',
@@ -357,18 +676,23 @@ if ('serviceWorker' in navigator) {
             }
         });
     `;
-    
-    const blob = new Blob([swCode], { type: 'application/javascript' });
-    const swUrl = URL.createObjectURL(blob);
-    
-    navigator.serviceWorker.register(swUrl)
-        .then(registration => console.log('Service Worker registered for offline audio'))
-        .catch(error => console.log('Service Worker registration failed:', error));
-}
 
-class Game {
-    constructor() {
-        this.state = {
+        const blob = new Blob([swCode], { type: "application/javascript" });
+        const swUrl = URL.createObjectURL(blob);
+
+        navigator.serviceWorker
+          .register(swUrl)
+          .then((registration) =>
+            console.log("Service Worker registered for offline audio"),
+          )
+          .catch((error) =>
+            console.log("Service Worker registration failed:", error),
+          );
+      }
+
+      class Game {
+        constructor() {
+          this.state = {
             turn: 1,
             population: { current: 10, capacity: 20 },
             resources: { food: 50, power: 20, materials: 150, credits: 200 },
@@ -384,75 +708,217 @@ class Game {
             defense: 0,
             siegeTurnsRemaining: 0,
             allies: {
-                elara: { relationship: 0, lastContact: 0 },
-                unit734: { relationship: 0, lastContact: 0, hasAccess: false },
-                rustDevils: { hostility: 0 }
+              elara: { relationship: 0, lastContact: 0 },
+              unit734: { relationship: 0, lastContact: 0, hasAccess: false },
+              rustDevils: { hostility: 0 },
             },
             terminus: {
-                relays: 0,
-                activated: false,
-                protocols: { renewal: false, transcendence: false, control: false }
+              relays: 0,
+              activated: false,
+              protocols: {
+                renewal: false,
+                transcendence: false,
+                control: false,
+              },
             },
-            famineCounter: 0
-        };
+            famineCounter: 0,
+          };
 
-        this.elements = {
-            console: document.getElementById('console'),
-            input: document.getElementById('input'),
-            turnCounter: document.getElementById('turn-counter'),
-            resourceBars: document.getElementById('resource-bars'),
-            cityArt: document.getElementById('city-art'),
-            alertStatus: document.getElementById('alert-status'),
-        };
+          this.elements = {
+            console: document.getElementById("console"),
+            input: document.getElementById("input"),
+            turnCounter: document.getElementById("turn-counter"),
+            resourceBars: document.getElementById("resource-bars"),
+            cityArt: document.getElementById("city-art"),
+            alertStatus: document.getElementById("alert-status"),
+          };
 
-        // Audio system - with offline fallback
-        this.audio = {
+          // Audio system - with offline fallback
+          this.audio = {
             loadingMusic: null,
             mainBg: null,
             threatBg: null,
             currentBg: null,
-            available: false // Track if audio is available
-        };
-        
-        // Initialize audio with error handling for offline mode
-        this.initializeAudio();
-        
-        this.audioEnabled = true; // Allow users to toggle audio
+            available: false, // Track if audio is available
+          };
 
-        this.commandHistory = [];
-        this.historyIndex = -1;
+          // Initialize audio with error handling for offline mode
+          this.initializeAudio();
 
-        // Initialize audio system
-        this.initializeAudio();
+          this.audioEnabled = true; // Allow users to toggle audio
 
-        this.DATA = {
+          this.commandHistory = [];
+          this.historyIndex = -1;
+
+          // Initialize audio system
+          this.initializeAudio();
+
+          this.DATA = {
             buildings: {
-                'habitat': { name: 'Habitat Pod', cost: { materials: 20 }, upkeep: { power: 1 }, effects: { capacity: 5, credits: 5, materials: 2 }, levels: [ { capacity: 5, credits: 5, materials: 2 }, { capacity: 8, power: -1, credits: 8, materials: 3 }, { capacity: 12, power: -2, credits: 12, materials: 5 } ] },
-                'hydroponics': { name: 'Hydroponics Farm', cost: { materials: 30, power: 5 }, upkeep: { power: 2, credits: 2 }, effects: { food: 15 }, levels: [ { food: 15 }, { food: 25, power: -3 }, { food: 40, power: -4 } ] },
-                'fusion': { name: 'Fusion Generator', cost: { materials: 80 }, upkeep: { credits: 5 }, effects: { power: 25 }, levels: [ { power: 25 }, { power: 40 }, { power: 60 } ] },
-                'fabricator': { name: 'Material Fabricator', cost: { materials: 60, power: 10 }, upkeep: { power: 8 }, effects: { materials: 15 }, levels: [ { materials: 15 }, { materials: 25 }, { materials: 40 } ]},
-                'market': { name: 'Trade Hub', cost: { materials: 50, credits: 30}, upkeep: { power: 3 }, effects: { credits: 25}, levels: [ { credits: 25 }, { credits: 40 }, { credits: 60, power: -5 }]},
-                'lab': { name: 'Research Lab', cost: { materials: 100, power: 15}, upkeep: { credits: 10, power: 8}, effects: { tech: 5 }},
-                'turret': { name: 'Defense Turret', cost: { materials: 120, power: 20, credits: 150}, upkeep: { power: 8 }, effects: { defense: 10 }, levels: [ { defense: 10 }, { defense: 20 }, { defense: 35 } ]},
-                'shield': { name: 'Energy Shield', cost: { materials: 200, power: 50, credits: 300}, upkeep: { power: 25 }, effects: { defense: 25 }, levels: [ { defense: 25 }, { defense: 50 }, { defense: 100 } ]},
-                'terminus_relay': { name: 'Terminus Relay', cost: { materials: 500, power: 100, credits: 1000}, upkeep: { power: 50 }, effects: { terminus: 1 }, unlocked: false, levels: [ { terminus: 1 } ]}
+              habitat: {
+                name: "Habitat Pod",
+                cost: { materials: 20 },
+                upkeep: { power: 1 },
+                effects: { capacity: 5, credits: 5, materials: 2 },
+                levels: [
+                  { capacity: 5, credits: 5, materials: 2 },
+                  { capacity: 8, power: -1, credits: 8, materials: 3 },
+                  { capacity: 12, power: -2, credits: 12, materials: 5 },
+                ],
+              },
+              hydroponics: {
+                name: "Hydroponics Farm",
+                cost: { materials: 30, power: 5 },
+                upkeep: { power: 2, credits: 2 },
+                effects: { food: 15 },
+                levels: [
+                  { food: 15 },
+                  { food: 25, power: -3 },
+                  { food: 40, power: -4 },
+                ],
+              },
+              fusion: {
+                name: "Fusion Generator",
+                cost: { materials: 80 },
+                upkeep: { credits: 5 },
+                effects: { power: 25 },
+                levels: [{ power: 25 }, { power: 40 }, { power: 60 }],
+              },
+              fabricator: {
+                name: "Material Fabricator",
+                cost: { materials: 60, power: 10 },
+                upkeep: { power: 8 },
+                effects: { materials: 15 },
+                levels: [
+                  { materials: 15 },
+                  { materials: 25 },
+                  { materials: 40 },
+                ],
+              },
+              market: {
+                name: "Trade Hub",
+                cost: { materials: 50, credits: 30 },
+                upkeep: { power: 3 },
+                effects: { credits: 25 },
+                levels: [
+                  { credits: 25 },
+                  { credits: 40 },
+                  { credits: 60, power: -5 },
+                ],
+              },
+              lab: {
+                name: "Research Lab",
+                cost: { materials: 100, power: 15 },
+                upkeep: { credits: 10, power: 8 },
+                effects: { tech: 5 },
+              },
+              turret: {
+                name: "Defense Turret",
+                cost: { materials: 120, power: 20, credits: 150 },
+                upkeep: { power: 8 },
+                effects: { defense: 10 },
+                levels: [{ defense: 10 }, { defense: 20 }, { defense: 35 }],
+              },
+              shield: {
+                name: "Energy Shield",
+                cost: { materials: 200, power: 50, credits: 300 },
+                upkeep: { power: 25 },
+                effects: { defense: 25 },
+                levels: [{ defense: 25 }, { defense: 50 }, { defense: 100 }],
+              },
+              terminus_relay: {
+                name: "Terminus Relay",
+                cost: { materials: 500, power: 100, credits: 1000 },
+                upkeep: { power: 50 },
+                effects: { terminus: 1 },
+                unlocked: false,
+                levels: [{ terminus: 1 }],
+              },
             },
             tech: {
-                'advanced_storage': { name: "Advanced Storage", cost: 50, effect: () => { this.state.storage.food += 200; this.state.storage.materials += 500; this.write("Storage capacity increased.", 'cyan', 'info'); } },
-                'solar_grid': { name: "Efficient Solar Grid", cost: 75, effect: () => { this.write("Building power upkeep reduced.", 'cyan', 'info'); this.state.tech.add('solar_grid_mastery'); } },
-                'defensive_systems': { name: "Defensive Systems", cost: 100, effect: () => { this.unlockBuilding('turret'); this.write("Turret construction blueprints unlocked.", 'cyan', 'info'); } },
-                'energy_shields': { name: "Energy Shield Technology", cost: 200, effect: () => { this.unlockBuilding('shield'); this.write("Energy shield technology acquired.", 'cyan', 'info'); } },
-                'terminus_protocols': { name: "Terminus Connection Protocols", cost: 500, effect: () => { this.unlockBuilding('terminus_relay'); this.write("CRITICAL: Terminus Relay construction enabled. The endgame approaches.", 'magenta', 'crit'); } }
+              advanced_storage: {
+                name: "Advanced Storage",
+                cost: 50,
+                effect: () => {
+                  this.state.storage.food += 200;
+                  this.state.storage.materials += 500;
+                  this.write("Storage capacity increased.", "cyan", "info");
+                },
+              },
+              solar_grid: {
+                name: "Efficient Solar Grid",
+                cost: 75,
+                effect: () => {
+                  this.write("Building power upkeep reduced.", "cyan", "info");
+                  this.state.tech.add("solar_grid_mastery");
+                },
+              },
+              defensive_systems: {
+                name: "Defensive Systems",
+                cost: 100,
+                effect: () => {
+                  this.unlockBuilding("turret");
+                  this.write(
+                    "Turret construction blueprints unlocked.",
+                    "cyan",
+                    "info",
+                  );
+                },
+              },
+              energy_shields: {
+                name: "Energy Shield Technology",
+                cost: 200,
+                effect: () => {
+                  this.unlockBuilding("shield");
+                  this.write(
+                    "Energy shield technology acquired.",
+                    "cyan",
+                    "info",
+                  );
+                },
+              },
+              terminus_protocols: {
+                name: "Terminus Connection Protocols",
+                cost: 500,
+                effect: () => {
+                  this.unlockBuilding("terminus_relay");
+                  this.write(
+                    "CRITICAL: Terminus Relay construction enabled. The endgame approaches.",
+                    "magenta",
+                    "crit",
+                  );
+                },
+              },
             },
             policies: {
-                'rations': { name: 'Food Rations', effect: 'foodConsumption', modifier: 0.75, downside: { happiness: -10 } },
-                'double_shifts': { name: 'Double Shifts', effect: 'materialProd', modifier: 1.5, downside: { happiness: -15, foodConsumption: 1.25 } },
-                'martial_law': { name: 'Martial Law', effect: 'defense', modifier: 2.0, downside: { happiness: -25, credits: -10 } },
-                'salvage_ops': { name: 'Salvage Operations', effect: 'materialBonus', modifier: 10, downside: { happiness: -5 } }
+              rations: {
+                name: "Food Rations",
+                effect: "foodConsumption",
+                modifier: 0.75,
+                downside: { happiness: -10 },
+              },
+              double_shifts: {
+                name: "Double Shifts",
+                effect: "materialProd",
+                modifier: 1.5,
+                downside: { happiness: -15, foodConsumption: 1.25 },
+              },
+              martial_law: {
+                name: "Martial Law",
+                effect: "defense",
+                modifier: 2.0,
+                downside: { happiness: -25, credits: -10 },
+              },
+              salvage_ops: {
+                name: "Salvage Operations",
+                effect: "materialBonus",
+                modifier: 10,
+                downside: { happiness: -5 },
+              },
             },
             art: {
-                loading: [
-`
+              loading: [
+                `
 ████████ ███████ ██████  ███    ███ ██ ███    ██ ██    ██ ███████
    ██    ██      ██   ██ ████  ████ ██ ████   ██ ██    ██ ██     
    ██    █████   ██████  ██ ████ ██ ██ ██ ██  ██ ██    ██ ███████
@@ -475,9 +941,9 @@ INITIALIZING ADMINISTRATOR LINK
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ▓          ACCESSING TERMINUS         ▓
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓`,
-                ],
-                city: [
-`
+              ],
+              city: [
+                `
 ╔══════════════════════════════════════════════╗
 ║         SECTOR-7 FOUNDATION LEVEL            ║
 ╠══════════════════════════════════════════════╣
@@ -495,7 +961,7 @@ INITIALIZING ADMINISTRATOR LINK
 ║                                              ║
 ╚══════════════════════════════════════════════╝`,
 
-`
+                `
 ╔══════════════════════════════════════════════╗
 ║         SECTOR-7 GROWING COLONY              ║
 ╠══════════════════════════════════════════════╣
@@ -517,7 +983,7 @@ INITIALIZING ADMINISTRATOR LINK
 ║                                              ║
 ╚══════════════════════════════════════════════╝`,
 
-`
+                `
 ╔══════════════════════════════════════════════╗
 ║         SECTOR-7 ESTABLISHED TOWN            ║
 ╠══════════════════════════════════════════════╣
@@ -539,7 +1005,7 @@ INITIALIZING ADMINISTRATOR LINK
 ║                                              ║
 ╚══════════════════════════════════════════════╝`,
 
-`
+                `
 ╔══════════════════════════════════════════════╗
 ║         SECTOR-7 MEGA-CITY                   ║
 ╠══════════════════════════════════════════════╣
@@ -559,10 +1025,10 @@ INITIALIZING ADMINISTRATOR LINK
 ║        Defenses:   FORTRESS                  ║
 ║        Population: MAXIMUM                   ║
 ║                                              ║
-╚══════════════════════════════════════════════╝`
-                ],
-                threats: [
-`
+╚══════════════════════════════════════════════╝`,
+              ],
+              threats: [
+                `
                     ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
                     ▓    ⚠️  THREAT DETECTED  ⚠️    ▓ 
                     ▓                                ▓  
@@ -583,7 +1049,7 @@ INITIALIZING ADMINISTRATOR LINK
 
                     RUST DEVIL RAIDERS APPROACHING...
                     ESTIMATED TIME TO ARRIVAL: 3 TURNS`,
-`
+                `
                     ████████████████████████████████████
                     █  🔥 SIEGE IN PROGRESS 🔥        █
                     ████████████████████████████████████
@@ -601,10 +1067,10 @@ INITIALIZING ADMINISTRATOR LINK
                     ║    ZONE    ║    ║   BOMBARDMENT  ║
                     ╚══════════════════════════════════╝
 
-                    DAMAGE REPORT: BUILDINGS AT RISK!`
-                ],
-                victory: [
-`
+                    DAMAGE REPORT: BUILDINGS AT RISK!`,
+              ],
+              victory: [
+                `
                     ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
                     ★                                                    ★
                     ★              VICTORY ACHIEVED!                     ★
@@ -623,10 +1089,10 @@ INITIALIZING ADMINISTRATOR LINK
                     ║  + Legendary Status              ║
                     ║  + New Trade Routes Opened       ║
                     ║                                  ║
-                    ╚══════════════════════════════════╝`
-                ],
-                endings: {
-                    renewal: `
+                    ╚══════════════════════════════════╝`,
+              ],
+              endings: {
+                renewal: `
                     ╔══════════════════════════════════════════════╗
                     ║                                              ║
                     ║        🌅 PROTOCOL: RENEWAL 🌅              ║
@@ -642,7 +1108,7 @@ INITIALIZING ADMINISTRATOR LINK
                     ║         A NEW DAWN HAS BEGUN.                ║
                     ║                                              ║
                     ╚══════════════════════════════════════════════╝`,
-                    transcendence: `
+                transcendence: `
                     ╔══════════════════════════════════════════════╗
                     ║                                              ║
                     ║      🧠 PROTOCOL: TRANSCENDENCE 🧠          ║
@@ -658,7 +1124,7 @@ INITIALIZING ADMINISTRATOR LINK
                     ║     WELCOME TO THE NEW NEXUS.                ║
                     ║                                              ║
                     ╚══════════════════════════════════════════════╝`,
-                    control: `
+                control: `
                     ╔══════════════════════════════════════════════╗
                     ║                                              ║
                     ║        👑 PROTOCOL: CONTROL 👑              ║
@@ -673,718 +1139,976 @@ INITIALIZING ADMINISTRATOR LINK
                     ║                                              ║
                     ║        YOU ARE THE TERMINUS.                 ║
                     ║                                              ║
-                    ╚══════════════════════════════════════════════╝`
-                }
+                    ╚══════════════════════════════════════════════╝`,
+              },
             },
-        };
-        this.buildingCounter = 0;
-        this.techPoints = 0;
-    }
-
-    unlockBuilding(type) {
-        if (this.DATA.buildings[type]) {
-            this.DATA.buildings[type].unlocked = true;
+          };
+          this.buildingCounter = 0;
+          this.techPoints = 0;
         }
-    }
 
-    // --- AUDIO SYSTEM ---
-    playLoadingMusic() {
-        if (this.audioEnabled && this.audio.loadingMusic) {
+        unlockBuilding(type) {
+          if (this.DATA.buildings[type]) {
+            this.DATA.buildings[type].unlocked = true;
+          }
+        }
+
+        // --- AUDIO SYSTEM ---
+        playLoadingMusic() {
+          if (this.audioEnabled && this.audio.loadingMusic) {
             // Set loading music to loop and ensure it's audible
             this.audio.loadingMusic.loop = true;
             this.audio.loadingMusic.volume = 0.8;
-            this.audio.loadingMusic.play().catch(e => {
-                console.log('Loading music play failed:', e);
+            this.audio.loadingMusic.play().catch((e) => {
+              console.log("Loading music play failed:", e);
             });
+          }
         }
-    }
 
-    stopLoadingMusic() {
-        if (this.audio.loadingMusic) {
+        stopLoadingMusic() {
+          if (this.audio.loadingMusic) {
             this.audio.loadingMusic.pause();
             this.audio.loadingMusic.currentTime = 0;
             this.audio.loadingMusic.loop = false;
+          }
         }
-    }
 
-    initializeAudio() {
-        try {
-            console.log('Initializing audio system...');
-            this.audio.loadingMusic = new Audio('GameLoading.mp3');
-            this.audio.mainBg = new Audio('MainBgNormal.mp3');
-            this.audio.threatBg = new Audio('SecondaryBgWhenThingsGoWrong.mp3');
-            
+        initializeAudio() {
+          try {
+            console.log("Initializing audio system...");
+            this.audio.loadingMusic = new Audio("GameLoading.mp3");
+            this.audio.mainBg = new Audio("MainBgNormal.mp3");
+            this.audio.threatBg = new Audio("SecondaryBgWhenThingsGoWrong.mp3");
+
             // Force preload for offline caching
-            this.audio.loadingMusic.preload = 'auto';
-            this.audio.mainBg.preload = 'auto';
-            this.audio.threatBg.preload = 'auto';
-            
+            this.audio.loadingMusic.preload = "auto";
+            this.audio.mainBg.preload = "auto";
+            this.audio.threatBg.preload = "auto";
+
             // Setup audio properties
             this.audio.mainBg.loop = true;
             this.audio.mainBg.volume = 0.6;
             this.audio.loadingMusic.volume = 0.7;
             this.audio.threatBg.volume = 0.8;
-            
+
             // Load audio files into browser cache
             this.audio.loadingMusic.load();
             this.audio.mainBg.load();
             this.audio.threatBg.load();
-            
+
             // Track successful caching with individual file logging
             let loadedCount = 0;
             const checkAllLoaded = (audioName) => {
-                loadedCount++;
-                console.log(`Audio loaded: ${audioName} (${loadedCount}/3)`);
-                if (loadedCount >= 3) {
-                    this.audio.available = true;
-                    console.log('All audio files cached for offline use');
-                }
+              loadedCount++;
+              console.log(`Audio loaded: ${audioName} (${loadedCount}/3)`);
+              if (loadedCount >= 3) {
+                this.audio.available = true;
+                console.log("All audio files cached for offline use");
+              }
             };
-            
-            this.audio.loadingMusic.addEventListener('canplaythrough', () => checkAllLoaded('GameLoading.mp3'), { once: true });
-            this.audio.mainBg.addEventListener('canplaythrough', () => checkAllLoaded('MainBgNormal.mp3'), { once: true });
-            this.audio.threatBg.addEventListener('canplaythrough', () => checkAllLoaded('SecondaryBgWhenThingsGoWrong.mp3'), { once: true });
-            
+
+            this.audio.loadingMusic.addEventListener(
+              "canplaythrough",
+              () => checkAllLoaded("GameLoading.mp3"),
+              { once: true },
+            );
+            this.audio.mainBg.addEventListener(
+              "canplaythrough",
+              () => checkAllLoaded("MainBgNormal.mp3"),
+              { once: true },
+            );
+            this.audio.threatBg.addEventListener(
+              "canplaythrough",
+              () => checkAllLoaded("SecondaryBgWhenThingsGoWrong.mp3"),
+              { once: true },
+            );
+
             // Handle errors with specific file identification
             const handleError = (audioName) => {
-                console.error(`Audio load failed: ${audioName}`);
-                this.audio.available = false;
+              console.error(`Audio load failed: ${audioName}`);
+              this.audio.available = false;
             };
-            
-            this.audio.loadingMusic.addEventListener('error', () => handleError('GameLoading.mp3'));
-            this.audio.mainBg.addEventListener('error', () => handleError('MainBgNormal.mp3'));
-            this.audio.threatBg.addEventListener('error', () => handleError('SecondaryBgWhenThingsGoWrong.mp3'));
-            
-            this.audio.available = true; // Assume available until proven otherwise
-        } catch (error) {
-            console.log('Audio initialization failed - offline mode detected');
-            this.audio.available = false;
-        }
-    }
 
-    playMainBg() {
-        if (this.audioEnabled && this.audio.mainBg && this.audio.currentBg !== this.audio.mainBg) {
+            this.audio.loadingMusic.addEventListener("error", () =>
+              handleError("GameLoading.mp3"),
+            );
+            this.audio.mainBg.addEventListener("error", () =>
+              handleError("MainBgNormal.mp3"),
+            );
+            this.audio.threatBg.addEventListener("error", () =>
+              handleError("SecondaryBgWhenThingsGoWrong.mp3"),
+            );
+
+            this.audio.available = true; // Assume available until proven otherwise
+          } catch (error) {
+            console.log("Audio initialization failed - offline mode detected");
+            this.audio.available = false;
+          }
+        }
+
+        playMainBg() {
+          if (
+            this.audioEnabled &&
+            this.audio.mainBg &&
+            this.audio.currentBg !== this.audio.mainBg
+          ) {
             this.stopAllBg();
             this.audio.currentBg = this.audio.mainBg;
-            this.audio.mainBg.play().catch(e => {
-                console.log('Audio play failed:', e);
-                // Don't disable audio completely - might work on next try
+            this.audio.mainBg.play().catch((e) => {
+              console.log("Audio play failed:", e);
+              // Don't disable audio completely - might work on next try
             });
+          }
         }
-    }
 
-    playThreatBg() {
-        console.log('Threat background music triggered - checking conditions...');
-        console.log('Audio enabled:', this.audioEnabled);
-        console.log('Threat audio object exists:', !!this.audio.threatBg);
-        console.log('Current background:', this.audio.currentBg);
-        console.log('Threat audio readyState:', this.audio.threatBg ? this.audio.threatBg.readyState : 'N/A');
-        
-        if (this.audioEnabled && this.audio.threatBg && this.audio.currentBg !== this.audio.threatBg) {
-            console.log('Playing threat background music: SecondaryBgWhenThingsGoWrong.mp3');
+        playThreatBg() {
+          console.log(
+            "Threat background music triggered - checking conditions...",
+          );
+          console.log("Audio enabled:", this.audioEnabled);
+          console.log("Threat audio object exists:", !!this.audio.threatBg);
+          console.log("Current background:", this.audio.currentBg);
+          console.log(
+            "Threat audio readyState:",
+            this.audio.threatBg ? this.audio.threatBg.readyState : "N/A",
+          );
+
+          if (
+            this.audioEnabled &&
+            this.audio.threatBg &&
+            this.audio.currentBg !== this.audio.threatBg
+          ) {
+            console.log(
+              "Playing threat background music: SecondaryBgWhenThingsGoWrong.mp3",
+            );
             this.stopAllBg();
             this.audio.currentBg = this.audio.threatBg;
-            this.audio.threatBg.play().then(() => {
-                console.log('Threat music started successfully');
-            }).catch(e => {
-                console.error('Threat music play failed:', e);
-                console.error('Audio src:', this.audio.threatBg.src);
-                console.error('Audio error code:', this.audio.threatBg.error?.code);
-            });
-            
+            this.audio.threatBg
+              .play()
+              .then(() => {
+                console.log("Threat music started successfully");
+              })
+              .catch((e) => {
+                console.error("Threat music play failed:", e);
+                console.error("Audio src:", this.audio.threatBg.src);
+                console.error(
+                  "Audio error code:",
+                  this.audio.threatBg.error?.code,
+                );
+              });
+
             // Auto-return to main bg after threat music finishes
             this.audio.threatBg.onended = () => {
-                console.log('Threat music ended, returning to main background');
-                this.playMainBg();
+              console.log("Threat music ended, returning to main background");
+              this.playMainBg();
             };
-        } else {
-            console.log('Threat music not played - conditions not met');
+          } else {
+            console.log("Threat music not played - conditions not met");
+          }
         }
-    }
 
-    stopAllBg() {
-        if (this.audio.mainBg) this.audio.mainBg.pause();
-        if (this.audio.threatBg) this.audio.threatBg.pause();
-        this.audio.currentBg = null;
-    }
+        stopAllBg() {
+          if (this.audio.mainBg) this.audio.mainBg.pause();
+          if (this.audio.threatBg) this.audio.threatBg.pause();
+          this.audio.currentBg = null;
+        }
 
-    toggleAudio() {
-        this.audioEnabled = !this.audioEnabled;
-        if (!this.audioEnabled) {
+        toggleAudio() {
+          this.audioEnabled = !this.audioEnabled;
+          if (!this.audioEnabled) {
             this.stopAllBg();
             this.stopLoadingMusic();
-        } else {
+          } else {
             this.playMainBg();
+          }
+          return this.audioEnabled;
         }
-        return this.audioEnabled;
-    }
 
-    // --- FULLSCREEN SYSTEM ---
-    toggleFullscreen() {
-        if (!document.fullscreenElement) {
+        // --- FULLSCREEN SYSTEM ---
+        toggleFullscreen() {
+          if (!document.fullscreenElement) {
             // Enter fullscreen
-            document.documentElement.requestFullscreen().then(() => {
-                this.write("Fullscreen mode enabled.", 'cyan', 'info');
-            }).catch((err) => {
-                this.write("Could not enable fullscreen: " + err.message, 'red', 'warn');
-            });
+            document.documentElement
+              .requestFullscreen()
+              .then(() => {
+                this.write("Fullscreen mode enabled.", "cyan", "info");
+              })
+              .catch((err) => {
+                this.write(
+                  "Could not enable fullscreen: " + err.message,
+                  "red",
+                  "warn",
+                );
+              });
             return true;
-        } else {
+          } else {
             // Exit fullscreen
-            document.exitFullscreen().then(() => {
-                this.write("Fullscreen mode disabled.", 'yellow', 'info');
-            }).catch((err) => {
-                this.write("Could not exit fullscreen: " + err.message, 'red', 'warn');
-            });
+            document
+              .exitFullscreen()
+              .then(() => {
+                this.write("Fullscreen mode disabled.", "yellow", "info");
+              })
+              .catch((err) => {
+                this.write(
+                  "Could not exit fullscreen: " + err.message,
+                  "red",
+                  "warn",
+                );
+              });
             return false;
+          }
         }
-    }
 
-    showThreatArt() {
-        if (this.state.siegeTurnsRemaining > 0) {
+        showThreatArt() {
+          if (this.state.siegeTurnsRemaining > 0) {
             this.elements.cityArt.innerHTML = this.DATA.art.threats[1];
-        } else if (this.state.threatLevel > 3) {
+          } else if (this.state.threatLevel > 3) {
             this.elements.cityArt.innerHTML = this.DATA.art.threats[0];
+          }
         }
-    }
 
-    showVictoryArt() {
-        this.elements.cityArt.innerHTML = this.DATA.art.victory[0];
-    }
+        showVictoryArt() {
+          this.elements.cityArt.innerHTML = this.DATA.art.victory[0];
+        }
 
-    showEndingArt(ending) {
-        this.elements.cityArt.innerHTML = this.DATA.art.endings[ending];
-    }
+        showEndingArt(ending) {
+          this.elements.cityArt.innerHTML = this.DATA.art.endings[ending];
+        }
 
-    async init() {
-        await this.showLoadingScreen();
-        this.elements.gameContainer = document.getElementById('game-container');
-        this.elements.gameContainer.classList.add('loaded');
-        
-        // Setup input field
-        const prompt = document.getElementById('prompt');
-        prompt.innerHTML = '<span style="color: var(--glow-color);">ADMIN@SECTOR-7: </span><input type="text" id="input" placeholder="Type \'help\' for commands..." /><span id="cursor"></span>';
-        this.elements.input = document.getElementById('input');
-        
-        this.elements.input.addEventListener('keydown', this.handleInput.bind(this));
-        this.elements.input.addEventListener('keydown', this.handleAutocomplete.bind(this));
-        
-        // Add keyboard scrolling for console
-        this.elements.console.addEventListener('keydown', this.handleConsoleKeys.bind(this));
-        
-        // Make console focusable for keyboard navigation
-        this.elements.console.tabIndex = 0;
-        
-        // Global keyboard handler for PageUp/PageDown and fullscreen
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'PageUp' || e.key === 'PageDown') {
-                this.handleConsoleKeys(e);
+        async init() {
+          await this.showLoadingScreen();
+          this.elements.gameContainer =
+            document.getElementById("game-container");
+          this.elements.gameContainer.classList.add("loaded");
+
+          // Setup input field
+          const prompt = document.getElementById("prompt");
+          prompt.innerHTML =
+            '<span style="color: var(--glow-color);">ADMIN@SECTOR-7: </span><input type="text" id="input" placeholder="Type \'help\' for commands..." /><span id="cursor"></span>';
+          this.elements.input = document.getElementById("input");
+
+          this.elements.input.addEventListener(
+            "keydown",
+            this.handleInput.bind(this),
+          );
+          this.elements.input.addEventListener(
+            "keydown",
+            this.handleAutocomplete.bind(this),
+          );
+
+          // Add keyboard scrolling for console
+          this.elements.console.addEventListener(
+            "keydown",
+            this.handleConsoleKeys.bind(this),
+          );
+
+          // Make console focusable for keyboard navigation
+          this.elements.console.tabIndex = 0;
+
+          // Global keyboard handler for PageUp/PageDown and fullscreen
+          document.addEventListener("keydown", (e) => {
+            if (e.key === "PageUp" || e.key === "PageDown") {
+              this.handleConsoleKeys(e);
             }
             // F11 for fullscreen toggle (prevent default browser behavior)
-            if (e.key === 'F11') {
-                e.preventDefault();
-                this.toggleFullscreen();
+            if (e.key === "F11") {
+              e.preventDefault();
+              this.toggleFullscreen();
             }
             // ESC to exit fullscreen if in fullscreen mode
-            if (e.key === 'Escape' && document.fullscreenElement) {
-                e.preventDefault();
-                this.toggleFullscreen();
+            if (e.key === "Escape" && document.fullscreenElement) {
+              e.preventDefault();
+              this.toggleFullscreen();
             }
-        });
-        
-        this.write(":: Booting up Administrator terminal ::", 'cyan');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        this.write(":: Connection established. Sector-7 archives loaded. ::", 'cyan');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        this.write(":: CRITICAL: Settlement population at minimum viable levels ::", 'yellow');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        this.write("Welcome, Administrator. Your objective is to rebuild this settlement and activate the Terminus.", 'green');
-        this.write("The fate of humanity rests in your hands. Type 'help' for commands.", 'green');
-        this.write("", '');
-        this.write("=== THE TERMINUS PROJECT: BEGIN RECONSTRUCTION ===", 'magenta');
-        this.write("", '');
-        this.write("🎯 SURVIVAL TIP: Build HABITAT first for income, then MARKET for credits!", 'yellow');
-        this.write("⚠️  Avoid building hydroponics first - they drain credits without income!", 'yellow'); 
-        this.write("", '');
-        this.write("Starting Resources:", 'cyan');
-        this.write(`  Food: ${Math.floor(this.state.resources.food)} | Power: ${Math.floor(this.state.resources.power)} | Materials: ${Math.floor(this.state.resources.materials)} | Credits: ${Math.floor(this.state.resources.credits)}`, 'white');
-        this.write("Type 'resources' anytime to see current levels and income/upkeep.", 'gray');
-        
-        this.updateUI();
-        this.elements.input.focus();
-    }
-    
-    async showLoadingScreen() {
-        const artEl = document.getElementById('loading-art');
-        const textEl = document.getElementById('loading-text');
-        artEl.innerHTML = this.DATA.art.loading[0];
+          });
 
-        const text = "ACCESSING_TERMINUS_NETWORK... AUTHENTICATING...";
-        for(let i=0; i<text.length; i++) {
-            const span = document.createElement('span');
-            span.className = 'char';
+          this.write(":: Booting up Administrator terminal ::", "cyan");
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          this.write(
+            ":: Connection established. Sector-7 archives loaded. ::",
+            "cyan",
+          );
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          this.write(
+            ":: CRITICAL: Settlement population at minimum viable levels ::",
+            "yellow",
+          );
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          this.write(
+            "Welcome, Administrator. Your objective is to rebuild this settlement and activate the Terminus.",
+            "green",
+          );
+          this.write(
+            "The fate of humanity rests in your hands. Type 'help' for commands.",
+            "green",
+          );
+          this.write("", "");
+          this.write(
+            "=== THE TERMINUS PROJECT: BEGIN RECONSTRUCTION ===",
+            "magenta",
+          );
+          this.write("", "");
+          this.write(
+            "🎯 SURVIVAL TIP: Build HABITAT first for income, then MARKET for credits!",
+            "yellow",
+          );
+          this.write(
+            "⚠️  Avoid building hydroponics first - they drain credits without income!",
+            "yellow",
+          );
+          this.write("", "");
+          this.write("Starting Resources:", "cyan");
+          this.write(
+            `  Food: ${Math.floor(this.state.resources.food)} | Power: ${Math.floor(this.state.resources.power)} | Materials: ${Math.floor(this.state.resources.materials)} | Credits: ${Math.floor(this.state.resources.credits)}`,
+            "white",
+          );
+          this.write(
+            "Type 'resources' anytime to see current levels and income/upkeep.",
+            "gray",
+          );
+
+          this.updateUI();
+          this.elements.input.focus();
+        }
+
+        async showLoadingScreen() {
+          const artEl = document.getElementById("loading-art");
+          const textEl = document.getElementById("loading-text");
+          artEl.innerHTML = this.DATA.art.loading[0];
+
+          const text = "ACCESSING_TERMINUS_NETWORK... AUTHENTICATING...";
+          for (let i = 0; i < text.length; i++) {
+            const span = document.createElement("span");
+            span.className = "char";
             span.textContent = text[i];
             span.style.animationDelay = `${i * 0.08}s`;
             textEl.appendChild(span);
-            await new Promise(r => setTimeout(r, 30));
-        }
+            await new Promise((r) => setTimeout(r, 30));
+          }
 
-        // Add status messages
-        await new Promise(resolve => setTimeout(resolve, 800));
-        const statusDiv = document.createElement('div');
-        statusDiv.innerHTML = '<br>CONNECTION ESTABLISHED<br>SECTOR-7 ARCHIVES... LOADED<br>ADMINISTRATOR PRIVILEGES... GRANTED';
-        statusDiv.style.color = '#00ff00';
-        statusDiv.style.fontSize = '0.9em';
-        statusDiv.style.marginTop = '1rem';
-        textEl.appendChild(statusDiv);
+          // Add status messages
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          const statusDiv = document.createElement("div");
+          statusDiv.innerHTML =
+            "<br>CONNECTION ESTABLISHED<br>SECTOR-7 ARCHIVES... LOADED<br>ADMINISTRATOR PRIVILEGES... GRANTED";
+          statusDiv.style.color = "#00ff00";
+          statusDiv.style.fontSize = "0.9em";
+          statusDiv.style.marginTop = "1rem";
+          textEl.appendChild(statusDiv);
 
-        // Add interactive prompt
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const promptSpan = document.createElement('div');
-        promptSpan.innerHTML = '<br><br>[ .............PRESS ANY KEY TO CONTINUE.......... ]';
-        promptSpan.style.color = '#ffff00';
-        promptSpan.style.animation = 'blink 1s infinite';
-        promptSpan.style.fontWeight = 'bold';
-        textEl.appendChild(promptSpan);
+          // Add interactive prompt
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const promptSpan = document.createElement("div");
+          promptSpan.innerHTML =
+            "<br><br>[ .............PRESS ANY KEY TO CONTINUE.......... ]";
+          promptSpan.style.color = "#ffff00";
+          promptSpan.style.animation = "blink 1s infinite";
+          promptSpan.style.fontWeight = "bold";
+          textEl.appendChild(promptSpan);
 
-        return new Promise(resolve => {
+          return new Promise((resolve) => {
             const handleKeyPress = (e) => {
-                window.removeEventListener('keydown', handleKeyPress);
-                
-                // Start loading music immediately on first key press
-                this.playLoadingMusic();
-                
-                // Let loading music play for 2 seconds before transitioning
+              window.removeEventListener("keydown", handleKeyPress);
+
+              // Start loading music immediately on first key press
+              this.playLoadingMusic();
+
+              // Let loading music play for 2 seconds before transitioning
+              setTimeout(() => {
+                // Stop loading music and start main background music
+                this.stopLoadingMusic();
+                this.playMainBg();
+
+                const loadingScreen = document.getElementById("loading-screen");
+                loadingScreen.style.transition = "opacity 2s ease-out";
+                loadingScreen.style.opacity = "0";
                 setTimeout(() => {
-                    // Stop loading music and start main background music
-                    this.stopLoadingMusic();
-                    this.playMainBg();
-                    
-                    const loadingScreen = document.getElementById('loading-screen');
-                    loadingScreen.style.transition = 'opacity 2s ease-out';
-                    loadingScreen.style.opacity = '0';
-                    setTimeout(() => {
-                        loadingScreen.style.display = 'none';
-                        resolve();
-                    }, 2000);
-                }, 2000); // Give loading music 2 seconds to play
+                  loadingScreen.style.display = "none";
+                  resolve();
+                }, 2000);
+              }, 2000); // Give loading music 2 seconds to play
             };
-            window.addEventListener('keydown', handleKeyPress);
-        });
-    }
-
-    write(message, color = null, type = null, isRaw = false) {
-        const line = document.createElement('span');
-        line.className = 'log-line';
-
-        if (type) {
-            line.classList.add('notification', `notif-${type}`);
+            window.addEventListener("keydown", handleKeyPress);
+          });
         }
-        if (color) {
+
+        write(message, color = null, type = null, isRaw = false) {
+          const line = document.createElement("span");
+          line.className = "log-line";
+
+          if (type) {
+            line.classList.add("notification", `notif-${type}`);
+          }
+          if (color) {
             line.classList.add(color);
-        }
+          }
 
-        if (isRaw) {
+          if (isRaw) {
             line.innerHTML = message;
-        } else {
+          } else {
             line.textContent = message;
+          }
+
+          this.elements.console.appendChild(line);
+          this.elements.console.scrollTop = this.elements.console.scrollHeight;
         }
 
-        this.elements.console.appendChild(line);
-        this.elements.console.scrollTop = this.elements.console.scrollHeight;
-    }
-
-    handleInput(e) {
-        switch (e.key) {
-            case 'Enter':
-                const command = this.elements.input.value.trim();
-                if (command) {
-                    this.write(`> ${command}`, 'gray');
-                    this.commandHistory.unshift(command);
-                    this.historyIndex = -1;
-                    this.parseCommand(command);
-                }
+        handleInput(e) {
+          switch (e.key) {
+            case "Enter":
+              const command = this.elements.input.value.trim();
+              if (command) {
+                this.write(`> ${command}`, "gray");
+                this.commandHistory.unshift(command);
+                this.historyIndex = -1;
+                this.parseCommand(command);
+              }
+              this.elements.input.value = "";
+              break;
+            case "ArrowUp":
+              e.preventDefault();
+              if (this.historyIndex < this.commandHistory.length - 1) {
+                this.historyIndex++;
+                this.elements.input.value =
+                  this.commandHistory[this.historyIndex];
+              }
+              break;
+            case "ArrowDown":
+              e.preventDefault();
+              if (this.historyIndex > 0) {
+                this.historyIndex--;
+                this.elements.input.value =
+                  this.commandHistory[this.historyIndex];
+              } else {
+                this.historyIndex = -1;
                 this.elements.input.value = "";
-                break;
-            case 'ArrowUp':
-                e.preventDefault();
-                if (this.historyIndex < this.commandHistory.length - 1) {
-                    this.historyIndex++;
-                    this.elements.input.value = this.commandHistory[this.historyIndex];
-                }
-                break;
-            case 'ArrowDown':
-                e.preventDefault();
-                if (this.historyIndex > 0) {
-                    this.historyIndex--;
-                    this.elements.input.value = this.commandHistory[this.historyIndex];
-                } else {
-                    this.historyIndex = -1;
-                    this.elements.input.value = "";
-                }
-                break;
+              }
+              break;
+          }
         }
-    }
 
-    // --- AUTOCOMPLETE FEATURE ---
-    handleAutocomplete(e) {
-        if (e.key !== 'Tab') return;
-        e.preventDefault();
-        const input = e.target;
-        const value = input.value;
-        const cursorPos = input.selectionStart;
-        const beforeCursor = value.slice(0, cursorPos);
-        const afterCursor = value.slice(cursorPos);
+        // --- AUTOCOMPLETE FEATURE ---
+        handleAutocomplete(e) {
+          if (e.key !== "Tab") return;
+          e.preventDefault();
+          const input = e.target;
+          const value = input.value;
+          const cursorPos = input.selectionStart;
+          const beforeCursor = value.slice(0, cursorPos);
+          const afterCursor = value.slice(cursorPos);
 
-        // Split command and args
-        const tokens = beforeCursor.split(/\s+/);
-        const cmd = tokens[0];
-        const arg = tokens[tokens.length - 1];
+          // Split command and args
+          const tokens = beforeCursor.split(/\s+/);
+          const cmd = tokens[0];
+          const arg = tokens[tokens.length - 1];
 
-        // Autocomplete sources
-        let options = [];
-        if (cmd === 'build') {
+          // Autocomplete sources
+          let options = [];
+          if (cmd === "build") {
             options = Object.keys(this.DATA.buildings);
-        } else if (cmd === 'policy') {
+          } else if (cmd === "policy") {
             options = Object.keys(this.DATA.policies);
-        } else if (cmd === 'research') {
+          } else if (cmd === "research") {
             options = Object.keys(this.DATA.tech);
-        }
+          }
 
-        // Only autocomplete if options available and arg is not empty
-        if (options.length && arg) {
-            const matches = options.filter(opt => opt.startsWith(arg));
+          // Only autocomplete if options available and arg is not empty
+          if (options.length && arg) {
+            const matches = options.filter((opt) => opt.startsWith(arg));
             if (matches.length === 1) {
-                // Single match: autocomplete
-                tokens[tokens.length - 1] = matches[0];
-                const newValue = tokens.join(' ') + afterCursor;
-                input.value = newValue;
-                input.setSelectionRange(newValue.length, newValue.length);
+              // Single match: autocomplete
+              tokens[tokens.length - 1] = matches[0];
+              const newValue = tokens.join(" ") + afterCursor;
+              input.value = newValue;
+              input.setSelectionRange(newValue.length, newValue.length);
             } else if (matches.length > 1) {
-                // Multiple matches: show suggestions in console
-                this.write('Autocomplete suggestions: ' + matches.join(', '), 'cyan');
+              // Multiple matches: show suggestions in console
+              this.write(
+                "Autocomplete suggestions: " + matches.join(", "),
+                "cyan",
+              );
             }
+          }
         }
-    }
 
-    handleConsoleKeys(e) {
-        switch (e.key) {
-            case 'PageUp':
+        handleConsoleKeys(e) {
+          switch (e.key) {
+            case "PageUp":
+              e.preventDefault();
+              this.elements.console.scrollTop -=
+                this.elements.console.clientHeight * 0.8;
+              break;
+            case "PageDown":
+              e.preventDefault();
+              this.elements.console.scrollTop +=
+                this.elements.console.clientHeight * 0.8;
+              break;
+            case "Home":
+              if (e.ctrlKey) {
                 e.preventDefault();
-                this.elements.console.scrollTop -= this.elements.console.clientHeight * 0.8;
-                break;
-            case 'PageDown':
+                this.elements.console.scrollTop = 0;
+              }
+              break;
+            case "End":
+              if (e.ctrlKey) {
                 e.preventDefault();
-                this.elements.console.scrollTop += this.elements.console.clientHeight * 0.8;
-                break;
-            case 'Home':
-                if (e.ctrlKey) {
-                    e.preventDefault();
-                    this.elements.console.scrollTop = 0;
-                }
-                break;
-            case 'End':
-                if (e.ctrlKey) {
-                    e.preventDefault();
-                    this.elements.console.scrollTop = this.elements.console.scrollHeight;
-                }
-                break;
+                this.elements.console.scrollTop =
+                  this.elements.console.scrollHeight;
+              }
+              break;
+          }
         }
-    }
 
-    parseCommand(command) {
-        const [cmd, ...args] = command.toLowerCase().split(' ');
-        
-        // Allow certain commands even during game over
-        if (this.state.gameOver && !['help', 'restart', 'audio', 'fullscreen'].includes(cmd)) {
-            this.write("Colony has fallen. Type 'restart' to begin anew or 'help' for available commands.", 'yellow');
+        parseCommand(command) {
+          const [cmd, ...args] = command.toLowerCase().split(" ");
+
+          // Allow certain commands even during game over
+          if (
+            this.state.gameOver &&
+            !["help", "restart", "audio", "fullscreen"].includes(cmd)
+          ) {
+            this.write(
+              "Colony has fallen. Type 'restart' to begin anew or 'help' for available commands.",
+              "yellow",
+            );
             return;
-        }
-        
-        switch (cmd) {
-            case 'help': this.cmd_help(); break;
-            case 'status': this.cmd_status(); break;
-            case 'resources': this.cmd_resources(); break;
-            case 'pass': this.cmd_pass(); break;
-            case 'emergency': this.cmd_emergency(); break;
-            case 'build': this.cmd_build(args); break;
-            case 'upgrade': this.cmd_upgrade(args); break;
-            case 'policy': this.cmd_policy(args); break;
-            case 'research': this.cmd_research(args); break;
-            case 'collective': this.cmd_collective(args); break;
-            case 'tribute': this.cmd_tribute(args); break;
-            case 'trade': this.cmd_trade(args); break;
-            case 'propose': this.cmd_propose(args); break;
-            case 'contact': this.cmd_contact(args); break;
-            case 'terminus': this.cmd_terminus(args); break;
-            case 'ending': this.cmd_ending(args); break;
-            case 'audio': this.cmd_audio(); break;
-            case 'fullscreen': this.cmd_fullscreen(); break;
-            case 'restart': this.cmd_restart(); break;
-            default: 
-                if (this.state.gameOver) {
-                    this.write("Game Over. Type 'restart' to play again or 'help' for commands.", 'yellow');
-                } else {
-                    this.write(`Error: command '${cmd}' not recognized.`, 'red');
-                }
-        }
-    }
+          }
 
-    nextTurn() {
-        // Store old resource values for comparison
-        const oldResources = { ...this.state.resources };
-        
-        this.state.turn++;
-        this.state.happiness = 100; // Reset happiness each turn
+          switch (cmd) {
+            case "help":
+              this.cmd_help();
+              break;
+            case "status":
+              this.cmd_status();
+              break;
+            case "resources":
+              this.cmd_resources();
+              break;
+            case "pass":
+              this.cmd_pass();
+              break;
+            case "emergency":
+              this.cmd_emergency();
+              break;
+            case "build":
+              this.cmd_build(args);
+              break;
+            case "upgrade":
+              this.cmd_upgrade(args);
+              break;
+            case "policy":
+              this.cmd_policy(args);
+              break;
+            case "research":
+              this.cmd_research(args);
+              break;
+            case "collective":
+              this.cmd_collective(args);
+              break;
+            case "tribute":
+              this.cmd_tribute(args);
+              break;
+            case "trade":
+              this.cmd_trade(args);
+              break;
+            case "propose":
+              this.cmd_propose(args);
+              break;
+            case "contact":
+              this.cmd_contact(args);
+              break;
+            case "terminus":
+              this.cmd_terminus(args);
+              break;
+            case "ending":
+              this.cmd_ending(args);
+              break;
+            case "audio":
+              this.cmd_audio();
+              break;
+            case "fullscreen":
+              this.cmd_fullscreen();
+              break;
+            case "restart":
+              this.cmd_restart();
+              break;
+            default:
+              if (this.state.gameOver) {
+                this.write(
+                  "Game Over. Type 'restart' to play again or 'help' for commands.",
+                  "yellow",
+                );
+              } else {
+                this.write(`Error: command '${cmd}' not recognized.`, "red");
+              }
+          }
+        }
 
-        // --- Collections ---
-        let collections = { food: 0, power: 0, materials: 0, credits: 0 };
-        this.state.buildings.forEach(b => {
+        nextTurn() {
+          // Store old resource values for comparison
+          const oldResources = { ...this.state.resources };
+
+          this.state.turn++;
+          this.state.happiness = 100; // Reset happiness each turn
+
+          // --- Collections ---
+          let collections = { food: 0, power: 0, materials: 0, credits: 0 };
+          this.state.buildings.forEach((b) => {
             const bData = this.DATA.buildings[b.type];
-            
+
             // Check levels data first
             if (bData.levels && bData.levels[b.level - 1]) {
-                const levelData = bData.levels[b.level - 1];
-                if(levelData.food) collections.food += levelData.food;
-                if(levelData.power) collections.power += levelData.power;
-                if(levelData.materials) collections.materials += levelData.materials;
-                if(levelData.credits) collections.credits += levelData.credits;
+              const levelData = bData.levels[b.level - 1];
+              if (levelData.food) collections.food += levelData.food;
+              if (levelData.power) collections.power += levelData.power;
+              if (levelData.materials)
+                collections.materials += levelData.materials;
+              if (levelData.credits) collections.credits += levelData.credits;
             }
-            
+
             // Also check effects data (for buildings without levels)
             if (bData.effects) {
-                if(bData.effects.food) collections.food += bData.effects.food;
-                if(bData.effects.power) collections.power += bData.effects.power;
-                if(bData.effects.materials) collections.materials += bData.effects.materials;
-                if(bData.effects.credits) collections.credits += bData.effects.credits;
+              if (bData.effects.food) collections.food += bData.effects.food;
+              if (bData.effects.power) collections.power += bData.effects.power;
+              if (bData.effects.materials)
+                collections.materials += bData.effects.materials;
+              if (bData.effects.credits)
+                collections.credits += bData.effects.credits;
             }
-            
-            if(b.type === 'lab') this.techPoints += 5;
-        });
 
-        // --- Upkeep & Consumption ---
-        let upkeep = { food: this.state.population.current, power: 0, materials: 0, credits: 0 };
-        this.state.buildings.forEach(b => {
+            if (b.type === "lab") this.techPoints += 5;
+          });
+
+          // --- Upkeep & Consumption ---
+          let upkeep = {
+            food: this.state.population.current,
+            power: 0,
+            materials: 0,
+            credits: 0,
+          };
+          this.state.buildings.forEach((b) => {
             const bData = this.DATA.buildings[b.type];
-            if(bData.upkeep) {
-                Object.keys(bData.upkeep).forEach(key => upkeep[key] += bData.upkeep[key]);
+            if (bData.upkeep) {
+              Object.keys(bData.upkeep).forEach(
+                (key) => (upkeep[key] += bData.upkeep[key]),
+              );
             }
-        });
+          });
 
-        // Apply tech bonuses
-        if (this.state.tech.has('solar_grid_mastery')) {
+          // Apply tech bonuses
+          if (this.state.tech.has("solar_grid_mastery")) {
             upkeep.power *= 0.8; // 20% reduction
-        }
+          }
 
-        // Apply policy effects
-        if (this.state.policies.has('rations')) {
+          // Apply policy effects
+          if (this.state.policies.has("rations")) {
             upkeep.food *= 0.75;
             this.state.happiness -= 10;
-        }
-        if (this.state.policies.has('double_shifts')) {
+          }
+          if (this.state.policies.has("double_shifts")) {
             collections.materials *= 1.5;
             upkeep.food *= 1.25;
             this.state.happiness -= 15;
-        }
-        if (this.state.policies.has('salvage_ops')) {
+          }
+          if (this.state.policies.has("salvage_ops")) {
             collections.materials += 10; // Flat bonus materials per turn
             this.state.happiness -= 5;
-        }
-        
-        // --- EMERGENCY RESOURCE GENERATION ---
-        // Base resource generation to prevent economic death spiral
-        collections.materials += 2; // Base scavenging materials per turn
-        
-        // Emergency economic recovery when completely broke
-        if (this.state.resources.credits === 0 && this.state.resources.materials === 0) {
+          }
+
+          // --- EMERGENCY RESOURCE GENERATION ---
+          // Base resource generation to prevent economic death spiral
+          collections.materials += 2; // Base scavenging materials per turn
+
+          // Emergency economic recovery when completely broke
+          if (
+            this.state.resources.credits === 0 &&
+            this.state.resources.materials === 0
+          ) {
             collections.credits += 5; // Emergency trading income
             collections.materials += 5; // Emergency scavenging finds
-            this.write("Emergency scavenging teams deployed! Found basic supplies.", 'cyan', 'info');
-        }
-        
-        // Population-based minimum income (represents basic citizen productivity)
-        if (this.state.population.current >= 5) {
-            collections.credits += Math.floor(this.state.population.current / 5); // 1 credit per 5 citizens
-        }
-        if (this.state.policies.has('martial_law')) {
+            this.write(
+              "Emergency scavenging teams deployed! Found basic supplies.",
+              "cyan",
+              "info",
+            );
+          }
+
+          // Population-based minimum income (represents basic citizen productivity)
+          if (this.state.population.current >= 5) {
+            collections.credits += Math.floor(
+              this.state.population.current / 5,
+            ); // 1 credit per 5 citizens
+          }
+          if (this.state.policies.has("martial_law")) {
             this.state.defense *= 2;
             this.state.happiness -= 25;
             upkeep.credits += 10;
-        }
-        
-        // --- Calculate Net ---
-        Object.keys(this.state.resources).forEach(key => {
-            this.state.resources[key] += (collections[key] || 0) - (upkeep[key] || 0);
-        });
+          }
 
-        // --- Deficits and Happiness ---
-        let famineCounter = this.state.famineCounter || 0;
-        
-        if(this.state.resources.food <= 0) { 
-            this.state.happiness -= 30; 
-            this.write("FAMINE! Population is starving.", 'red', 'crit'); 
+          // --- Calculate Net ---
+          Object.keys(this.state.resources).forEach((key) => {
+            this.state.resources[key] +=
+              (collections[key] || 0) - (upkeep[key] || 0);
+          });
+
+          // --- Deficits and Happiness ---
+          let famineCounter = this.state.famineCounter || 0;
+
+          if (this.state.resources.food <= 0) {
+            this.state.happiness -= 30;
+            this.write("FAMINE! Population is starving.", "red", "crit");
             this.playThreatBg();
-            
+
             // Escalating famine deaths
             famineCounter++;
             this.state.famineCounter = famineCounter;
-            
-            let deaths = Math.max(1, Math.floor(this.state.population.current * 0.15)); // 15% death rate during famine
+
+            let deaths = Math.max(
+              1,
+              Math.floor(this.state.population.current * 0.15),
+            ); // 15% death rate during famine
             if (famineCounter >= 3) {
-                deaths = Math.max(2, Math.floor(this.state.population.current * 0.25)); // 25% after 3 turns
-                this.write("Mass starvation event! The situation grows desperate!", 'red', 'crit');
+              deaths = Math.max(
+                2,
+                Math.floor(this.state.population.current * 0.25),
+              ); // 25% after 3 turns
+              this.write(
+                "Mass starvation event! The situation grows desperate!",
+                "red",
+                "crit",
+              );
             }
             if (famineCounter >= 6) {
-                deaths = Math.max(3, Math.floor(this.state.population.current * 0.4)); // 40% after 6 turns
-                this.write("Colony collapse imminent! Citizens abandoning Sector-7!", 'red', 'crit');
+              deaths = Math.max(
+                3,
+                Math.floor(this.state.population.current * 0.4),
+              ); // 40% after 6 turns
+              this.write(
+                "Colony collapse imminent! Citizens abandoning Sector-7!",
+                "red",
+                "crit",
+              );
             }
-            
+
             this.state.population.current -= deaths;
             if (deaths > 0) {
-                this.write(`${deaths} citizens perished from starvation.`, 'red', 'crit');
-                
-                // Special warnings as population gets critically low
-                if (this.state.population.current === 3) {
-                    this.write("WARNING: Colony population critical! Only 3 citizens remain!", 'red', 'crit');
-                } else if (this.state.population.current === 2) {
-                    this.write("CRITICAL: Only 2 citizens left in Sector-7!", 'red', 'crit');
-                }
+              this.write(
+                `${deaths} citizens perished from starvation.`,
+                "red",
+                "crit",
+              );
+
+              // Special warnings as population gets critically low
+              if (this.state.population.current === 3) {
+                this.write(
+                  "WARNING: Colony population critical! Only 3 citizens remain!",
+                  "red",
+                  "crit",
+                );
+              } else if (this.state.population.current === 2) {
+                this.write(
+                  "CRITICAL: Only 2 citizens left in Sector-7!",
+                  "red",
+                  "crit",
+                );
+              }
             }
-        } else {
+          } else {
             // Reset famine counter when food is available
             this.state.famineCounter = 0;
-        }
-        if(this.state.resources.power < 0) { 
-            this.state.happiness -= 20; 
-            this.write("BLACKOUT! City infrastructure failing.", 'red', 'crit'); 
+          }
+          if (this.state.resources.power < 0) {
+            this.state.happiness -= 20;
+            this.write("BLACKOUT! City infrastructure failing.", "red", "crit");
             this.playThreatBg();
-        }
-        if(this.state.resources.materials < 0) {
+          }
+          if (this.state.resources.materials < 0) {
             this.state.happiness -= 10;
-            this.write("Material shortage affecting construction.", 'yellow', 'warn');
-        }
-        if(this.state.resources.credits < 0) {
+            this.write(
+              "Material shortage affecting construction.",
+              "yellow",
+              "warn",
+            );
+          }
+          if (this.state.resources.credits < 0) {
             this.state.happiness -= 15;
-            this.write("Economic crisis! Citizens unable to trade.", 'yellow', 'warn');
-        }
-        
-        // Cap resources at storage limits
-        Object.keys(this.state.resources).forEach(key => {
-            if(this.state.resources[key] > this.state.storage[key]) {
-                this.state.resources[key] = this.state.storage[key];
-                this.write(`${key.toUpperCase()} storage full! Excess lost.`, 'yellow', 'warn');
+            this.write(
+              "Economic crisis! Citizens unable to trade.",
+              "yellow",
+              "warn",
+            );
+          }
+
+          // Cap resources at storage limits
+          Object.keys(this.state.resources).forEach((key) => {
+            if (this.state.resources[key] > this.state.storage[key]) {
+              this.state.resources[key] = this.state.storage[key];
+              this.write(
+                `${key.toUpperCase()} storage full! Excess lost.`,
+                "yellow",
+                "warn",
+              );
             }
-            if(this.state.resources[key] < 0) this.state.resources[key] = 0;
-        });
-        
-        // --- Population Growth ---
-        if(this.state.happiness > 70 && this.state.population.current < this.state.population.capacity && this.state.resources.food > 20) {
+            if (this.state.resources[key] < 0) this.state.resources[key] = 0;
+          });
+
+          // --- Population Growth ---
+          if (
+            this.state.happiness > 70 &&
+            this.state.population.current < this.state.population.capacity &&
+            this.state.resources.food > 20
+          ) {
             const growth = Math.floor(this.state.population.current * 0.08) + 1;
             this.state.population.current += growth;
-            if (growth > 0) this.write(`Population grows by ${growth}. Welcome to Sector-7!`, 'green', 'info');
-        } else if (this.state.happiness < 30) {
+            if (growth > 0)
+              this.write(
+                `Population grows by ${growth}. Welcome to Sector-7!`,
+                "green",
+                "info",
+              );
+          } else if (this.state.happiness < 30) {
             const loss = Math.floor(this.state.population.current * 0.05);
             if (loss > 0) {
-                this.state.population.current -= loss;
-                this.write(`${loss} citizens left Sector-7 due to low morale.`, 'red', 'warn');
+              this.state.population.current -= loss;
+              this.write(
+                `${loss} citizens left Sector-7 due to low morale.`,
+                "red",
+                "warn",
+              );
             }
-        }
-        this.state.population.current = Math.min(this.state.population.current, this.state.population.capacity);
-        
-        // Allow population to reach zero for proper game over
-        if (this.state.population.current < 0) {
-            this.state.population.current = 0;
-        }
+          }
+          this.state.population.current = Math.min(
+            this.state.population.current,
+            this.state.population.capacity,
+          );
 
-        // Update defense rating from buildings
-        this.state.defense = 0;
-        this.state.buildings.forEach(b => {
+          // Allow population to reach zero for proper game over
+          if (this.state.population.current < 0) {
+            this.state.population.current = 0;
+          }
+
+          // Update defense rating from buildings
+          this.state.defense = 0;
+          this.state.buildings.forEach((b) => {
             const bData = this.DATA.buildings[b.type];
             if (bData.effects.defense) {
-                const levelData = bData.levels[b.level - 1];
-                this.state.defense += levelData.defense || bData.effects.defense;
+              const levelData = bData.levels[b.level - 1];
+              this.state.defense += levelData.defense || bData.effects.defense;
             }
-        });
+          });
 
-        // Game over conditions - Settlement fails when only Administrator remains
-        if (this.state.population.current <= 1) {
-            this.write(":: CRITICAL SETTLEMENT FAILURE ::", 'red');
-            this.write("The last citizen of Sector-7 has perished, leaving only the Administrator.", 'red', 'crit');
-            this.write("A colony cannot survive with a single person. The settlement is lost.", 'red', 'crit');
-            this.write(":: GAME OVER ::", 'red');
-            this.write("Type 'restart' to begin anew, or 'help' for commands.", 'yellow');
+          // Game over conditions - Settlement fails when only Administrator remains
+          if (this.state.population.current <= 1) {
+            this.write(":: CRITICAL SETTLEMENT FAILURE ::", "red");
+            this.write(
+              "The last citizen of Sector-7 has perished, leaving only the Administrator.",
+              "red",
+              "crit",
+            );
+            this.write(
+              "A colony cannot survive with a single person. The settlement is lost.",
+              "red",
+              "crit",
+            );
+            this.write(":: GAME OVER ::", "red");
+            this.write(
+              "Type 'restart' to begin anew, or 'help' for commands.",
+              "yellow",
+            );
             this.playThreatBg();
             this.state.gameOver = true;
             return;
+          }
+
+          this.checkStoryEvents();
+
+          // Report resource changes
+          this.write("\n:: TURN SUMMARY ::", "gray");
+          Object.keys(this.state.resources).forEach((key) => {
+            const change =
+              Math.floor(this.state.resources[key]) -
+              Math.floor(oldResources[key]);
+            if (change !== 0) {
+              const color = change > 0 ? "green" : "red";
+              const sign = change > 0 ? "+" : "";
+              this.write(
+                `  ${key.charAt(0).toUpperCase() + key.slice(1)}: ${Math.floor(oldResources[key])} → ${Math.floor(this.state.resources[key])} (${sign}${change})`,
+                color,
+              );
+            }
+          });
+
+          // Warn about low resources
+          if (this.state.resources.food < 20) {
+            this.write(
+              "⚠️  WARNING: Food supplies running low!",
+              "yellow",
+              "warn",
+            );
+          }
+          if (this.state.resources.power < 10) {
+            this.write("⚠️  WARNING: Power grid unstable!", "yellow", "warn");
+          }
+          if (this.state.resources.materials < 30) {
+            this.write(
+              "⚠️  WARNING: Construction materials scarce!",
+              "yellow",
+              "warn",
+            );
+          }
+          if (this.state.resources.credits < 20) {
+            this.write(
+              "⚠️  WARNING: Economic reserves critically low!",
+              "yellow",
+              "warn",
+            );
+          }
+
+          this.updateUI();
         }
 
-        this.checkStoryEvents();
-        
-        // Report resource changes
-        this.write("\n:: TURN SUMMARY ::", 'gray');
-        Object.keys(this.state.resources).forEach(key => {
-            const change = Math.floor(this.state.resources[key]) - Math.floor(oldResources[key]);
-            if (change !== 0) {
-                const color = change > 0 ? 'green' : 'red';
-                const sign = change > 0 ? '+' : '';
-                this.write(`  ${key.charAt(0).toUpperCase() + key.slice(1)}: ${Math.floor(oldResources[key])} → ${Math.floor(this.state.resources[key])} (${sign}${change})`, color);
-            }
-        });
-        
-        // Warn about low resources
-        if (this.state.resources.food < 20) {
-            this.write("⚠️  WARNING: Food supplies running low!", 'yellow', 'warn');
-        }
-        if (this.state.resources.power < 10) {
-            this.write("⚠️  WARNING: Power grid unstable!", 'yellow', 'warn');
-        }
-        if (this.state.resources.materials < 30) {
-            this.write("⚠️  WARNING: Construction materials scarce!", 'yellow', 'warn');
-        }
-        if (this.state.resources.credits < 20) {
-            this.write("⚠️  WARNING: Economic reserves critically low!", 'yellow', 'warn');
-        }
-        
-        this.updateUI();
-    }
-    
-    updateUI() {
-        // --- Turn Counter ---
-        this.elements.turnCounter.textContent = `TURN: ${String(this.state.turn).padStart(3, '0')}`;
-        this.elements.turnCounter.classList.add('highlight');
-        setTimeout(() => this.elements.turnCounter.classList.remove('highlight'), 1000);
-        
-        // --- Resource Bars ---
-        let resHTML = '';
-        
-        // Population
-        const popPercent = (this.state.population.current / this.state.population.capacity) * 100;
-        resHTML += `
+        updateUI() {
+          // --- Turn Counter ---
+          this.elements.turnCounter.textContent = `TURN: ${String(this.state.turn).padStart(3, "0")}`;
+          this.elements.turnCounter.classList.add("highlight");
+          setTimeout(
+            () => this.elements.turnCounter.classList.remove("highlight"),
+            1000,
+          );
+
+          // --- Resource Bars ---
+          let resHTML = "";
+
+          // Population
+          const popPercent =
+            (this.state.population.current / this.state.population.capacity) *
+            100;
+          resHTML += `
             <div class="resource-bar">
                 <div class="resource-title">
                     <span>POPULATION</span>
                     <span>${this.state.population.current}/${this.state.population.capacity}</span>
                 </div>
                 <div class="resource-progress">
-                    <div class="resource-fill ${popPercent < 25 ? 'low' : ''}" style="width: ${popPercent}%;"></div>
+                    <div class="resource-fill ${popPercent < 25 ? "low" : ""}" style="width: ${popPercent}%;"></div>
                 </div>
             </div>`;
-        
-        // Happiness
-        const happyPercent = Math.max(0, Math.min(100, this.state.happiness));
-        resHTML += `
+
+          // Happiness
+          const happyPercent = Math.max(0, Math.min(100, this.state.happiness));
+          resHTML += `
             <div class="resource-bar">
                 <div class="resource-title">
                     <span>HAPPINESS</span>
                     <span>${Math.floor(happyPercent)}%</span>
                 </div>
                 <div class="resource-progress">
-                    <div class="resource-fill ${happyPercent < 25 ? 'low' : ''}" style="width: ${happyPercent}%;"></div>
+                    <div class="resource-fill ${happyPercent < 25 ? "low" : ""}" style="width: ${happyPercent}%;"></div>
                 </div>
             </div>`;
 
-        // Resources
-        Object.keys(this.state.resources).forEach(key => {
+          // Resources
+          Object.keys(this.state.resources).forEach((key) => {
             const current = this.state.resources[key];
             const capacity = this.state.storage[key];
             const percent = capacity > 0 ? (current / capacity) * 100 : 0;
@@ -1395,665 +2119,1049 @@ INITIALIZING ADMINISTRATOR LINK
                         <span>${Math.floor(current)}/${capacity}</span>
                     </div>
                     <div class="resource-progress">
-                        <div class="resource-fill ${percent < 25 ? 'low' : ''}" style="width: ${Math.max(0, percent)}%;"></div>
+                        <div class="resource-fill ${percent < 25 ? "low" : ""}" style="width: ${Math.max(0, percent)}%;"></div>
                     </div>
                 </div>`;
-        });
-        
-        this.elements.resourceBars.innerHTML = resHTML;
-        
-        // --- City Art & Stats ---
-        if (!this.state.terminus.activated && this.state.siegeTurnsRemaining === 0) {
+          });
+
+          this.elements.resourceBars.innerHTML = resHTML;
+
+          // --- City Art & Stats ---
+          if (
+            !this.state.terminus.activated &&
+            this.state.siegeTurnsRemaining === 0
+          ) {
             const buildingCount = this.state.buildings.length;
             let artIndex = 0;
-            if(buildingCount >= 15) artIndex = 3;
-            else if(buildingCount >= 8) artIndex = 2;
-            else if(buildingCount >= 3) artIndex = 1;
-            
+            if (buildingCount >= 15) artIndex = 3;
+            else if (buildingCount >= 8) artIndex = 2;
+            else if (buildingCount >= 3) artIndex = 1;
+
             this.elements.cityArt.innerHTML = this.DATA.art.city[artIndex];
-        }
+          }
 
-        // --- Alert Status ---
-        let alertText = "SYSTEMS: NOMINAL";
-        let alertColor = 'green';
-        
-        if (this.state.siegeTurnsRemaining > 0) {
+          // --- Alert Status ---
+          let alertText = "SYSTEMS: NOMINAL";
+          let alertColor = "green";
+
+          if (this.state.siegeTurnsRemaining > 0) {
             alertText = `SIEGE: ${this.state.siegeTurnsRemaining} TURNS`;
-            alertColor = 'red';
-        } else if (this.state.threatLevel > 7) {
+            alertColor = "red";
+          } else if (this.state.threatLevel > 7) {
             alertText = "THREAT: CRITICAL";
-            alertColor = 'red';
-        } else if (this.state.threatLevel > 4) {
+            alertColor = "red";
+          } else if (this.state.threatLevel > 4) {
             alertText = "THREAT: HIGH";
-            alertColor = 'yellow';
-        } else if (this.state.happiness < 30) {
+            alertColor = "yellow";
+          } else if (this.state.happiness < 30) {
             alertText = "MORALE: CRITICAL";
-            alertColor = 'red';
-        } else if (this.state.resources.food < 10) {
+            alertColor = "red";
+          } else if (this.state.resources.food < 10) {
             alertText = "FOOD: CRITICAL";
-            alertColor = 'red';
-        }
-        
-        this.elements.alertStatus.textContent = alertText;
-        this.elements.alertStatus.className = alertColor;
-    }
-    
-    checkStoryEvents() {
-        // Act I: A Flicker in the Dark
-        if (this.state.turn === 1 && !this.state.storyFlags.has('awakening')) {
-            this.write(":: System boot complete. Administrator ID confirmed. ::", 'cyan');
-            this.write(":: Welcome to Sector-7. Population: Critical. Resources: Minimal. ::", 'cyan');
-            this.write(":: Primary Directive: Ensure settlement survival. Long-term objective: Re-establish connection with THE TERMINUS PROJECT. ::", 'magenta');
-            this.state.storyFlags.add('awakening');
+            alertColor = "red";
+          }
+
+          this.elements.alertStatus.textContent = alertText;
+          this.elements.alertStatus.className = alertColor;
         }
 
-        if ((this.state.turn === 7 || this.state.buildings.some(b => b.type === 'hydroponics')) && !this.state.storyFlags.has('first_contact')) {
-            this.write(":: INCOMING TRANSMISSION - UNSECURED CHANNEL ::", 'magenta');
-            this.write("'Administrator of Sector-7? This is Elara of Outpost Delta. Our scanners just picked up your power signature. It's been a long time since we've seen a new light in this valley. We are desperate for food. Can offer salvaged materials in exchange. Please respond.'", 'yellow', 'info');
+        checkStoryEvents() {
+          // Act I: A Flicker in the Dark
+          if (
+            this.state.turn === 1 &&
+            !this.state.storyFlags.has("awakening")
+          ) {
+            this.write(
+              ":: System boot complete. Administrator ID confirmed. ::",
+              "cyan",
+            );
+            this.write(
+              ":: Welcome to Sector-7. Population: Critical. Resources: Minimal. ::",
+              "cyan",
+            );
+            this.write(
+              ":: Primary Directive: Ensure settlement survival. Long-term objective: Re-establish connection with THE TERMINUS PROJECT. ::",
+              "magenta",
+            );
+            this.state.storyFlags.add("awakening");
+          }
+
+          if (
+            (this.state.turn === 7 ||
+              this.state.buildings.some((b) => b.type === "hydroponics")) &&
+            !this.state.storyFlags.has("first_contact")
+          ) {
+            this.write(
+              ":: INCOMING TRANSMISSION - UNSECURED CHANNEL ::",
+              "magenta",
+            );
+            this.write(
+              "'Administrator of Sector-7? This is Elara of Outpost Delta. Our scanners just picked up your power signature. It's been a long time since we've seen a new light in this valley. We are desperate for food. Can offer salvaged materials in exchange. Please respond.'",
+              "yellow",
+              "info",
+            );
             this.state.allies.elara.lastContact = this.state.turn;
-            this.state.storyFlags.add('first_contact');
+            this.state.storyFlags.add("first_contact");
             // Immediately offer the first trade
             setTimeout(() => this.elaraTradeOffer(), 1000);
-        }
+          }
 
-        if (this.state.population.current >= 50 && !this.state.storyFlags.has('first_threat')) {
-            this.write(":: WARNING - BRUTE-FORCE SIGNAL DETECTED ::", 'red');
-            this.write("'Little city. Cute lights. We see you. The Rust Devils see all. All that metal, all that food... belongs to us. We will collect our tithe soon.'", 'red', 'crit');
+          if (
+            this.state.population.current >= 50 &&
+            !this.state.storyFlags.has("first_threat")
+          ) {
+            this.write(":: WARNING - BRUTE-FORCE SIGNAL DETECTED ::", "red");
+            this.write(
+              "'Little city. Cute lights. We see you. The Rust Devils see all. All that metal, all that food... belongs to us. We will collect our tithe soon.'",
+              "red",
+              "crit",
+            );
             this.playThreatBg();
             this.state.threatLevel = 1;
             this.state.allies.rustDevils.hostility = 1;
-            this.state.storyFlags.add('first_threat');
-        }
+            this.state.storyFlags.add("first_threat");
+          }
 
-        if (this.state.buildings.some(b => b.type === 'lab') && !this.state.storyFlags.has('nexus_fragment')) {
-            this.write(":: Nexus Archive Fragment 77-A Unlocked ::", 'cyan');
-            this.write("'Project Log: Terminus. The 'God Engine' is finally online. Initial energy readings are... unstable. Dr. Aris is concerned about the Cascade Protocol, but the directive is clear. We must proceed. Humanity depends on it. What have we created?'", 'yellow', 'info');
-            this.state.storyFlags.add('nexus_fragment');
-        }
+          if (
+            this.state.buildings.some((b) => b.type === "lab") &&
+            !this.state.storyFlags.has("nexus_fragment")
+          ) {
+            this.write(":: Nexus Archive Fragment 77-A Unlocked ::", "cyan");
+            this.write(
+              "'Project Log: Terminus. The 'God Engine' is finally online. Initial energy readings are... unstable. Dr. Aris is concerned about the Cascade Protocol, but the directive is clear. We must proceed. Humanity depends on it. What have we created?'",
+              "yellow",
+              "info",
+            );
+            this.state.storyFlags.add("nexus_fragment");
+          }
 
-        // Act II: The Chessboard is Set
-        if ((this.state.population.current >= 100 || this.state.tech.size >= 2) && !this.state.storyFlags.has('collective_contact')) {
-            this.write(":: SECURE DATABURST RECEIVED - SOURCE: THE COLLECTIVE ::", 'cyan');
-            this.write("'Entity Administrator. I am Unit 734. My analysis indicates your settlement has an 87.4% chance of failure within 50 cycles due to external threats and resource scarcity. The Automated Collective can offer a solution: technology for data. We will provide schematics for advanced robotics in exchange for full, unrestricted access to your settlement's operational logs. This is a mutually beneficial transaction. Logic dictates you accept.'", 'cyan', 'info');
-            this.write("Type 'collective accept' to accept their offer, or 'collective refuse' to decline.", 'gray');
+          // Act II: The Chessboard is Set
+          if (
+            (this.state.population.current >= 100 ||
+              this.state.tech.size >= 2) &&
+            !this.state.storyFlags.has("collective_contact")
+          ) {
+            this.write(
+              ":: SECURE DATABURST RECEIVED - SOURCE: THE COLLECTIVE ::",
+              "cyan",
+            );
+            this.write(
+              "'Entity Administrator. I am Unit 734. My analysis indicates your settlement has an 87.4% chance of failure within 50 cycles due to external threats and resource scarcity. The Automated Collective can offer a solution: technology for data. We will provide schematics for advanced robotics in exchange for full, unrestricted access to your settlement's operational logs. This is a mutually beneficial transaction. Logic dictates you accept.'",
+              "cyan",
+              "info",
+            );
+            this.write(
+              "Type 'collective accept' to accept their offer, or 'collective refuse' to decline.",
+              "gray",
+            );
             this.state.allies.unit734.lastContact = this.state.turn;
-            this.state.storyFlags.add('collective_contact');
-        }
+            this.state.storyFlags.add("collective_contact");
+          }
 
-        if ((this.state.turn >= 35 || this.state.threatLevel >= 5) && !this.state.storyFlags.has('scrapper_siege')) {
-            this.write(":: EMERGENCY TRANSMISSION FROM ELARA ::", 'red');
-            this.write("'Administrator! It's Kael! He's united the scavenger clans! They're on the warpath, and they're heading for you! You're the biggest target in the valley!'", 'red', 'crit');
-            this.write(":: INCOMING MESSAGE - RUST DEVILS ::", 'red');
-            this.write("'The tithe is due, little city. Give us half of your food and materials, and we might leave the foundations standing. Refuse, and we will grind you into dust.'", 'red', 'crit');
-            this.write("Type 'tribute pay' to pay tribute, or 'tribute refuse' to defy them.", 'yellow');
+          if (
+            (this.state.turn >= 35 || this.state.threatLevel >= 5) &&
+            !this.state.storyFlags.has("scrapper_siege")
+          ) {
+            this.write(":: EMERGENCY TRANSMISSION FROM ELARA ::", "red");
+            this.write(
+              "'Administrator! It's Kael! He's united the scavenger clans! They're on the warpath, and they're heading for you! You're the biggest target in the valley!'",
+              "red",
+              "crit",
+            );
+            this.write(":: INCOMING MESSAGE - RUST DEVILS ::", "red");
+            this.write(
+              "'The tithe is due, little city. Give us half of your food and materials, and we might leave the foundations standing. Refuse, and we will grind you into dust.'",
+              "red",
+              "crit",
+            );
+            this.write(
+              "Type 'tribute pay' to pay tribute, or 'tribute refuse' to defy them.",
+              "yellow",
+            );
             this.playThreatBg();
-            this.state.storyFlags.add('scrapper_siege');
-        }
+            this.state.storyFlags.add("scrapper_siege");
+          }
 
-        // Periodic events
-        if (this.state.turn % 10 === 0 && this.state.storyFlags.has('first_contact') && !this.pendingTrade) {
+          // Periodic events
+          if (
+            this.state.turn % 10 === 0 &&
+            this.state.storyFlags.has("first_contact") &&
+            !this.pendingTrade
+          ) {
             this.elaraTradeOffer();
-        }
+          }
 
-        // Threat level increases over time
-        if (this.state.turn % 10 === 0 && this.state.threatLevel < 10) {
+          // Threat level increases over time
+          if (this.state.turn % 10 === 0 && this.state.threatLevel < 10) {
             this.state.threatLevel++;
-        }
+          }
 
-        // Siege countdown
-        if (this.state.siegeTurnsRemaining > 0) {
+          // Siege countdown
+          if (this.state.siegeTurnsRemaining > 0) {
             this.state.siegeTurnsRemaining--;
             this.showThreatArt();
             if (this.state.siegeTurnsRemaining === 0) {
-                this.write(":: SIEGE BROKEN ::", 'green');
-                this.write("The Rust Devils retreat! Your defenses held strong!", 'green', 'info');
-                this.state.happiness += 50;
-                this.state.threatLevel = 0;
-                this.showVictoryArt();
-                this.playMainBg(); // Return to normal music after victory
-                setTimeout(() => this.updateUI(), 2000);
+              this.write(":: SIEGE BROKEN ::", "green");
+              this.write(
+                "The Rust Devils retreat! Your defenses held strong!",
+                "green",
+                "info",
+              );
+              this.state.happiness += 50;
+              this.state.threatLevel = 0;
+              this.showVictoryArt();
+              this.playMainBg(); // Return to normal music after victory
+              setTimeout(() => this.updateUI(), 2000);
             } else {
-                // Random building damage during siege
-                if (Math.random() < 0.3 && this.state.buildings.length > 0) {
-                    const randomBuilding = this.state.buildings[Math.floor(Math.random() * this.state.buildings.length)];
-                    this.write(`Building damaged: ${this.DATA.buildings[randomBuilding.type].name} [ID: ${randomBuilding.id}] requires 20 materials to repair.`, 'red', 'warn');
-                }
+              // Random building damage during siege
+              if (Math.random() < 0.3 && this.state.buildings.length > 0) {
+                const randomBuilding =
+                  this.state.buildings[
+                    Math.floor(Math.random() * this.state.buildings.length)
+                  ];
+                this.write(
+                  `Building damaged: ${this.DATA.buildings[randomBuilding.type].name} [ID: ${randomBuilding.id}] requires 20 materials to repair.`,
+                  "red",
+                  "warn",
+                );
+              }
             }
+          }
         }
-    }
 
-    elaraTradeOffer() {
-        const offers = [
-            { give: 'food', take: 'materials', giveAmount: 30, takeAmount: 50 },
-            { give: 'power', take: 'credits', giveAmount: 20, takeAmount: 100 },
-            { give: 'materials', take: 'food', giveAmount: 40, takeAmount: 60 },
-            { give: 'credits', take: 'power', giveAmount: 80, takeAmount: 25 },
-            { give: 'food', take: 'credits', giveAmount: 25, takeAmount: 75 },
-            { give: 'materials', take: 'power', giveAmount: 35, takeAmount: 30 }
-        ];
-        const offer = offers[Math.floor(Math.random() * offers.length)];
-        
-        this.write(`:: ELARA'S TRADE OFFER ::`, 'yellow');
-        this.write(`"I can trade ${offer.takeAmount} ${offer.take} for ${offer.giveAmount} of your ${offer.give}. What do you say?"`, 'yellow', 'info');
-        this.write(`Type 'trade accept' to accept or 'trade refuse' to decline.`, 'gray');
-        
-        this.pendingTrade = offer;
-    }
-    
-    // --- COMMANDS ---
-    cmd_help() {
-        this.write(":: COMMAND LIST ::", 'cyan');
-        this.write(" status - Display full report on city status and buildings.");
-        this.write(" resources - Show current resource levels and storage.");
-        this.write(" build <type> - Construct a new building (e.g., 'build habitat').");
-        this.write(" upgrade <id> - Upgrade a building (e.g., 'upgrade 1').");
-        this.write(" pass - End the current turn and proceed to the next.");
-        this.write(" emergency - Emergency resource package (one-time use per game).");
-        this.write(" research <tech> - Research a new technology.");
-        this.write(" policy <policy> <on/off> - Enact or revoke a city policy.");
-        this.write(" contact <elara> - Initiate contact with allies for trade.");
-        this.write(" propose <resource> <amount> - Propose a trade to Elara.");
-        this.write(" collective <accept/refuse> - Respond to Collective offers.");
-        this.write(" tribute <pay/refuse> - Respond to tribute demands.");
-        this.write(" trade <accept/refuse> - Respond to trade offers.");
-        this.write(" terminus <activate> - Activate Terminus (requires relay).");
-        this.write(" audio - Toggle background music on/off.");
-        this.write(" fullscreen - Toggle fullscreen mode on/off.");
-        this.write(" restart - Restart the game (if colony has failed).");
-        this.write("\nBuilding types: habitat, hydroponics, fusion, fabricator, market, lab");
-        this.write("🎯 CRITICAL FIRST STEPS:", 'yellow');
-        this.write("  1. Build HABITAT first for steady credits and materials income!", 'yellow');
-        this.write("  2. Build MARKET for high credit generation", 'yellow');
-        this.write("  3. Only then build hydroponics/fusion for food/power", 'yellow');
-        this.write("⚠️  WARNING: Hydroponics drain credits - build habitats first!");
-        this.write("Building costs:");
-        this.write("  habitat (20 materials) - +5 population, +5 credits/turn, +2 materials/turn");
-        this.write("  hydroponics (30 materials, 5 power) - +15 food/turn, -2 credits/turn");
-        this.write("  fusion (80 materials) - +25 power/turn, -5 credits/turn");
-        this.write("  fabricator (60 materials, 10 power) - +15 materials/turn, -8 power/turn");
-        this.write("  market (50 materials, 30 credits) - +25 credits/turn");
-        this.write("  lab (100 materials, 15 power) - +5 tech points/turn, -10 credits/turn");
-        this.write("POLICY TIP: Use 'policy salvage_ops on' for +10 materials/turn!");
-        if (this.DATA.buildings.turret?.unlocked) this.write("              : turret (defense)");
-        if (this.DATA.buildings.shield?.unlocked) this.write("              : shield (advanced defense)");
-        if (this.DATA.buildings.terminus_relay?.unlocked) this.write("              : terminus_relay (endgame)");
-        this.write("\nKEYBOARD SHORTCUTS:");
-        this.write("  F11 - Toggle fullscreen mode");
-        this.write("  ESC - Exit fullscreen (when in fullscreen)");
-        this.write("  PageUp/PageDown - Scroll console");
-        this.write("  Tab - Autocomplete commands");
-        this.write("\n🌐 OFFLINE MODE: Game works completely offline with full audio support!");
-        this.write("   Audio files are cached automatically for offline play.");
-        this.write("\nUse PageUp/PageDown or Shift+Scroll to navigate console history.");
-    }
-    
-    cmd_status() {
-        this.write("\n:: STATUS REPORT ::", "cyan");
-        this.write(`  Population: ${this.state.population.current}/${this.state.population.capacity}`);
-        this.write(`  Happiness: ${Math.floor(this.state.happiness)}%`);
-        this.write(`  Defense Rating: ${this.state.defense}`);
-        this.write(`  Threat Level: ${this.state.threatLevel}/10`);
-        if (this.state.siegeTurnsRemaining > 0) {
-            this.write(`  SIEGE STATUS: ${this.state.siegeTurnsRemaining} turns remaining!`, 'red');
-        }
-        
-        this.write(":: REGISTERED STRUCTURES ::", "cyan");
-        if (this.state.buildings.length === 0) {
-            this.write("  No structures online.", 'gray');
-        }
-        this.state.buildings.forEach(b => {
-            const bData = this.DATA.buildings[b.type];
-            this.write(`  [ID: ${b.id}] ${bData.name} (Lvl ${b.level})`, 'yellow');
-        });
-        
-        this.write(`\nTech Points: ${this.techPoints}`, 'magenta');
-        if (this.state.terminus.relays > 0) {
-            this.write(`Terminus Relays: ${this.state.terminus.relays}`, 'magenta');
-        }
-        
-        this.write("\n:: FACTION RELATIONSHIPS ::", "cyan");
-        this.write(`  Elara (Outpost Delta): ${this.state.allies.elara.relationship >= 0 ? 'Friendly' : 'Hostile'}`, 
-                   this.state.allies.elara.relationship >= 0 ? 'green' : 'red');
-        if (this.state.storyFlags.has('collective_contact')) {
-            this.write(`  Unit 734 (Collective): ${this.state.allies.unit734.relationship >= 0 ? 'Neutral' : 'Hostile'}`,
-                       this.state.allies.unit734.relationship >= 0 ? 'yellow' : 'red');
-        }
-        this.write(`  Rust Devils: Hostile (${this.state.allies.rustDevils.hostility}/10)`, 'red');
-    }
+        elaraTradeOffer() {
+          const offers = [
+            { give: "food", take: "materials", giveAmount: 30, takeAmount: 50 },
+            { give: "power", take: "credits", giveAmount: 20, takeAmount: 100 },
+            { give: "materials", take: "food", giveAmount: 40, takeAmount: 60 },
+            { give: "credits", take: "power", giveAmount: 80, takeAmount: 25 },
+            { give: "food", take: "credits", giveAmount: 25, takeAmount: 75 },
+            {
+              give: "materials",
+              take: "power",
+              giveAmount: 35,
+              takeAmount: 30,
+            },
+          ];
+          const offer = offers[Math.floor(Math.random() * offers.length)];
 
-    cmd_resources() {
-        this.write("\n:: RESOURCE STATUS ::", "cyan");
-        this.write(`  Food: ${Math.floor(this.state.resources.food)}/${this.state.storage.food}`);
-        this.write(`  Power: ${Math.floor(this.state.resources.power)}/${this.state.storage.power}`);
-        this.write(`  Materials: ${Math.floor(this.state.resources.materials)}/${this.state.storage.materials}`);
-        this.write(`  Credits: ${Math.floor(this.state.resources.credits)}/${this.state.storage.credits}`);
-        
-        this.write("\n:: RESOURCE INCOME/UPKEEP PER TURN ::", "yellow");
-        let income = { food: 0, power: 0, materials: 0, credits: 0 };
-        let upkeep = { food: this.state.population.current, power: 0, materials: 0, credits: 0 };
-        
-        // Calculate income from buildings
-        this.state.buildings.forEach(b => {
+          this.write(`:: ELARA'S TRADE OFFER ::`, "yellow");
+          this.write(
+            `"I can trade ${offer.takeAmount} ${offer.take} for ${offer.giveAmount} of your ${offer.give}. What do you say?"`,
+            "yellow",
+            "info",
+          );
+          this.write(
+            `Type 'trade accept' to accept or 'trade refuse' to decline.`,
+            "gray",
+          );
+
+          this.pendingTrade = offer;
+        }
+
+        // --- COMMANDS ---
+        cmd_help() {
+          this.write(":: COMMAND LIST ::", "cyan");
+          this.write(
+            " status - Display full report on city status and buildings.",
+          );
+          this.write(" resources - Show current resource levels and storage.");
+          this.write(
+            " build <type> - Construct a new building (e.g., 'build habitat').",
+          );
+          this.write(" upgrade <id> - Upgrade a building (e.g., 'upgrade 1').");
+          this.write(" pass - End the current turn and proceed to the next.");
+          this.write(
+            " emergency - Emergency resource package (one-time use per game).",
+          );
+          this.write(" research <tech> - Research a new technology.");
+          this.write(
+            " policy <policy> <on/off> - Enact or revoke a city policy.",
+          );
+          this.write(
+            " contact <elara> - Initiate contact with allies for trade.",
+          );
+          this.write(
+            " propose <resource> <amount> - Propose a trade to Elara.",
+          );
+          this.write(
+            " collective <accept/refuse> - Respond to Collective offers.",
+          );
+          this.write(" tribute <pay/refuse> - Respond to tribute demands.");
+          this.write(" trade <accept/refuse> - Respond to trade offers.");
+          this.write(
+            " terminus <activate> - Activate Terminus (requires relay).",
+          );
+          this.write(" audio - Toggle background music on/off.");
+          this.write(" fullscreen - Toggle fullscreen mode on/off.");
+          this.write(" restart - Restart the game (if colony has failed).");
+          this.write(
+            "\nBuilding types: habitat, hydroponics, fusion, fabricator, market, lab",
+          );
+          this.write("🎯 CRITICAL FIRST STEPS:", "yellow");
+          this.write(
+            "  1. Build HABITAT first for steady credits and materials income!",
+            "yellow",
+          );
+          this.write("  2. Build MARKET for high credit generation", "yellow");
+          this.write(
+            "  3. Only then build hydroponics/fusion for food/power",
+            "yellow",
+          );
+          this.write(
+            "⚠️  WARNING: Hydroponics drain credits - build habitats first!",
+          );
+          this.write("Building costs:");
+          this.write(
+            "  habitat (20 materials) - +5 population, +5 credits/turn, +2 materials/turn",
+          );
+          this.write(
+            "  hydroponics (30 materials, 5 power) - +15 food/turn, -2 credits/turn",
+          );
+          this.write(
+            "  fusion (80 materials) - +25 power/turn, -5 credits/turn",
+          );
+          this.write(
+            "  fabricator (60 materials, 10 power) - +15 materials/turn, -8 power/turn",
+          );
+          this.write("  market (50 materials, 30 credits) - +25 credits/turn");
+          this.write(
+            "  lab (100 materials, 15 power) - +5 tech points/turn, -10 credits/turn",
+          );
+          this.write(
+            "POLICY TIP: Use 'policy salvage_ops on' for +10 materials/turn!",
+          );
+          if (this.DATA.buildings.turret?.unlocked)
+            this.write("              : turret (defense)");
+          if (this.DATA.buildings.shield?.unlocked)
+            this.write("              : shield (advanced defense)");
+          if (this.DATA.buildings.terminus_relay?.unlocked)
+            this.write("              : terminus_relay (endgame)");
+          this.write("\nKEYBOARD SHORTCUTS:");
+          this.write("  F11 - Toggle fullscreen mode");
+          this.write("  ESC - Exit fullscreen (when in fullscreen)");
+          this.write("  PageUp/PageDown - Scroll console");
+          this.write("  Tab - Autocomplete commands");
+          this.write(
+            "\n🌐 OFFLINE MODE: Game works completely offline with full audio support!",
+          );
+          this.write(
+            "   Audio files are cached automatically for offline play.",
+          );
+          this.write(
+            "\nUse PageUp/PageDown or Shift+Scroll to navigate console history.",
+          );
+        }
+
+        cmd_status() {
+          this.write("\n:: STATUS REPORT ::", "cyan");
+          this.write(
+            `  Population: ${this.state.population.current}/${this.state.population.capacity}`,
+          );
+          this.write(`  Happiness: ${Math.floor(this.state.happiness)}%`);
+          this.write(`  Defense Rating: ${this.state.defense}`);
+          this.write(`  Threat Level: ${this.state.threatLevel}/10`);
+          if (this.state.siegeTurnsRemaining > 0) {
+            this.write(
+              `  SIEGE STATUS: ${this.state.siegeTurnsRemaining} turns remaining!`,
+              "red",
+            );
+          }
+
+          this.write(":: REGISTERED STRUCTURES ::", "cyan");
+          if (this.state.buildings.length === 0) {
+            this.write("  No structures online.", "gray");
+          }
+          this.state.buildings.forEach((b) => {
             const bData = this.DATA.buildings[b.type];
-            const levelData = bData.levels ? bData.levels[b.level - 1] : bData.effects;
+            this.write(
+              `  [ID: ${b.id}] ${bData.name} (Lvl ${b.level})`,
+              "yellow",
+            );
+          });
+
+          this.write(`\nTech Points: ${this.techPoints}`, "magenta");
+          if (this.state.terminus.relays > 0) {
+            this.write(
+              `Terminus Relays: ${this.state.terminus.relays}`,
+              "magenta",
+            );
+          }
+
+          this.write("\n:: FACTION RELATIONSHIPS ::", "cyan");
+          this.write(
+            `  Elara (Outpost Delta): ${this.state.allies.elara.relationship >= 0 ? "Friendly" : "Hostile"}`,
+            this.state.allies.elara.relationship >= 0 ? "green" : "red",
+          );
+          if (this.state.storyFlags.has("collective_contact")) {
+            this.write(
+              `  Unit 734 (Collective): ${this.state.allies.unit734.relationship >= 0 ? "Neutral" : "Hostile"}`,
+              this.state.allies.unit734.relationship >= 0 ? "yellow" : "red",
+            );
+          }
+          this.write(
+            `  Rust Devils: Hostile (${this.state.allies.rustDevils.hostility}/10)`,
+            "red",
+          );
+        }
+
+        cmd_resources() {
+          this.write("\n:: RESOURCE STATUS ::", "cyan");
+          this.write(
+            `  Food: ${Math.floor(this.state.resources.food)}/${this.state.storage.food}`,
+          );
+          this.write(
+            `  Power: ${Math.floor(this.state.resources.power)}/${this.state.storage.power}`,
+          );
+          this.write(
+            `  Materials: ${Math.floor(this.state.resources.materials)}/${this.state.storage.materials}`,
+          );
+          this.write(
+            `  Credits: ${Math.floor(this.state.resources.credits)}/${this.state.storage.credits}`,
+          );
+
+          this.write("\n:: RESOURCE INCOME/UPKEEP PER TURN ::", "yellow");
+          let income = { food: 0, power: 0, materials: 0, credits: 0 };
+          let upkeep = {
+            food: this.state.population.current,
+            power: 0,
+            materials: 0,
+            credits: 0,
+          };
+
+          // Calculate income from buildings
+          this.state.buildings.forEach((b) => {
+            const bData = this.DATA.buildings[b.type];
+            const levelData = bData.levels
+              ? bData.levels[b.level - 1]
+              : bData.effects;
             if (levelData) {
-                if (levelData.food) income.food += levelData.food;
-                if (levelData.power) income.power += levelData.power;
-                if (levelData.materials) income.materials += levelData.materials;
-                if (levelData.credits) income.credits += levelData.credits;
+              if (levelData.food) income.food += levelData.food;
+              if (levelData.power) income.power += levelData.power;
+              if (levelData.materials) income.materials += levelData.materials;
+              if (levelData.credits) income.credits += levelData.credits;
             }
             if (bData.effects) {
-                if (bData.effects.food) income.food += bData.effects.food;
-                if (bData.effects.power) income.power += bData.effects.power;
-                if (bData.effects.materials) income.materials += bData.effects.materials;
-                if (bData.effects.credits) income.credits += bData.effects.credits;
+              if (bData.effects.food) income.food += bData.effects.food;
+              if (bData.effects.power) income.power += bData.effects.power;
+              if (bData.effects.materials)
+                income.materials += bData.effects.materials;
+              if (bData.effects.credits)
+                income.credits += bData.effects.credits;
             }
-            
+
             // Calculate upkeep
             if (bData.upkeep) {
-                if (bData.upkeep.food) upkeep.food += bData.upkeep.food;
-                if (bData.upkeep.power) upkeep.power += bData.upkeep.power;
-                if (bData.upkeep.materials) upkeep.materials += bData.upkeep.materials;
-                if (bData.upkeep.credits) upkeep.credits += bData.upkeep.credits;
+              if (bData.upkeep.food) upkeep.food += bData.upkeep.food;
+              if (bData.upkeep.power) upkeep.power += bData.upkeep.power;
+              if (bData.upkeep.materials)
+                upkeep.materials += bData.upkeep.materials;
+              if (bData.upkeep.credits) upkeep.credits += bData.upkeep.credits;
             }
-        });
-        
-        Object.keys(income).forEach(key => {
+          });
+
+          Object.keys(income).forEach((key) => {
             const net = income[key] - upkeep[key];
-            const color = net > 0 ? 'green' : net < 0 ? 'red' : 'yellow';
-            this.write(`  ${key.charAt(0).toUpperCase() + key.slice(1)}: +${income[key]} -${upkeep[key]} = ${net >= 0 ? '+' : ''}${net}`, color);
-        });
-    }
+            const color = net > 0 ? "green" : net < 0 ? "red" : "yellow";
+            this.write(
+              `  ${key.charAt(0).toUpperCase() + key.slice(1)}: +${income[key]} -${upkeep[key]} = ${net >= 0 ? "+" : ""}${net}`,
+              color,
+            );
+          });
+        }
 
-    cmd_pass() {
-        this.write("Ending turn...", "gray");
-        this.nextTurn();
-    }
-    
-    cmd_emergency() {
-        if (this.state.storyFlags.has('emergency_used')) {
-            this.write("Emergency aid package already deployed. No additional support available.", "red", "crit");
-            return;
+        cmd_pass() {
+          this.write("Ending turn...", "gray");
+          this.nextTurn();
         }
-        
-        if (this.state.resources.materials >= 50 && this.state.resources.credits >= 50) {
-            this.write("Emergency aid not needed - colony has sufficient resources.", "yellow", "warn");
+
+        cmd_emergency() {
+          if (this.state.storyFlags.has("emergency_used")) {
+            this.write(
+              "Emergency aid package already deployed. No additional support available.",
+              "red",
+              "crit",
+            );
             return;
+          }
+
+          if (
+            this.state.resources.materials >= 50 &&
+            this.state.resources.credits >= 50
+          ) {
+            this.write(
+              "Emergency aid not needed - colony has sufficient resources.",
+              "yellow",
+              "warn",
+            );
+            return;
+          }
+
+          this.write(":: EMERGENCY AID PACKAGE DEPLOYED ::", "cyan");
+          this.write(
+            "Emergency scavenging teams have found critical supplies!",
+            "cyan",
+            "info",
+          );
+
+          this.state.resources.materials += 60;
+          this.state.resources.credits += 80;
+          this.state.resources.food += 30;
+          this.state.storyFlags.add("emergency_used");
+
+          this.write(
+            "Received: +60 materials, +80 credits, +30 food",
+            "green",
+            "info",
+          );
+          this.write(
+            "This aid package can only be used once per game.",
+            "yellow",
+            "warn",
+          );
+
+          this.updateUI();
         }
-        
-        this.write(":: EMERGENCY AID PACKAGE DEPLOYED ::", "cyan");
-        this.write("Emergency scavenging teams have found critical supplies!", "cyan", "info");
-        
-        this.state.resources.materials += 60;
-        this.state.resources.credits += 80;
-        this.state.resources.food += 30;
-        this.state.storyFlags.add('emergency_used');
-        
-        this.write("Received: +60 materials, +80 credits, +30 food", "green", "info");
-        this.write("This aid package can only be used once per game.", "yellow", "warn");
-        
-        this.updateUI();
-    }
-    
-    cmd_build(args) {
-        const type = args[0];
-        if(!type || !this.DATA.buildings[type]) {
-            this.write("Error: Invalid building type. Use 'help' to see available buildings.", "red", "crit");
+
+        cmd_build(args) {
+          const type = args[0];
+          if (!type || !this.DATA.buildings[type]) {
+            this.write(
+              "Error: Invalid building type. Use 'help' to see available buildings.",
+              "red",
+              "crit",
+            );
             this.write("Available buildings:", "cyan");
-            Object.keys(this.DATA.buildings).forEach(bType => {
-                const b = this.DATA.buildings[bType];
-                if (b.unlocked !== false) {
-                    const costStr = Object.entries(b.cost).map(([res, amount]) => `${amount} ${res}`).join(', ');
-                    this.write(`  ${bType}: ${b.name} (Cost: ${costStr})`, "yellow");
-                }
+            Object.keys(this.DATA.buildings).forEach((bType) => {
+              const b = this.DATA.buildings[bType];
+              if (b.unlocked !== false) {
+                const costStr = Object.entries(b.cost)
+                  .map(([res, amount]) => `${amount} ${res}`)
+                  .join(", ");
+                this.write(
+                  `  ${bType}: ${b.name} (Cost: ${costStr})`,
+                  "yellow",
+                );
+              }
             });
             return;
-        }
+          }
 
-        const building = this.DATA.buildings[type];
-        if (building.unlocked === false) {
-            this.write("Error: Building type not yet unlocked. Research required.", "red", "crit");
+          const building = this.DATA.buildings[type];
+          if (building.unlocked === false) {
+            this.write(
+              "Error: Building type not yet unlocked. Research required.",
+              "red",
+              "crit",
+            );
             return;
-        }
-        
-        const cost = building.cost;
-        
-        // Show what we're trying to build and its cost
-        const costStr = Object.entries(cost).map(([res, amount]) => `${amount} ${res}`).join(', ');
-        this.write(`Attempting to build ${building.name} (Cost: ${costStr})`, "cyan");
-        
-        // Check resources and show current amounts
-        let canAfford = true;
-        for(let res in cost) {
+          }
+
+          const cost = building.cost;
+
+          // Show what we're trying to build and its cost
+          const costStr = Object.entries(cost)
+            .map(([res, amount]) => `${amount} ${res}`)
+            .join(", ");
+          this.write(
+            `Attempting to build ${building.name} (Cost: ${costStr})`,
+            "cyan",
+          );
+
+          // Check resources and show current amounts
+          let canAfford = true;
+          for (let res in cost) {
             if (this.state.resources[res] < cost[res]) {
-                this.write(`Error: Insufficient ${res}. Need ${cost[res]}, have ${Math.floor(this.state.resources[res])}.`, "red", "crit");
-                canAfford = false;
+              this.write(
+                `Error: Insufficient ${res}. Need ${cost[res]}, have ${Math.floor(this.state.resources[res])}.`,
+                "red",
+                "crit",
+              );
+              canAfford = false;
             }
-        }
-        
-        if (!canAfford) {
+          }
+
+          if (!canAfford) {
             this.write("Current resources:", "gray");
-            Object.keys(this.state.resources).forEach(res => {
-                this.write(`  ${res.charAt(0).toUpperCase() + res.slice(1)}: ${Math.floor(this.state.resources[res])}`, "gray");
+            Object.keys(this.state.resources).forEach((res) => {
+              this.write(
+                `  ${res.charAt(0).toUpperCase() + res.slice(1)}: ${Math.floor(this.state.resources[res])}`,
+                "gray",
+              );
             });
             return;
-        }
-        
-        for(let res in cost) {
+          }
+
+          for (let res in cost) {
             this.state.resources[res] -= cost[res];
+          }
+
+          this.buildingCounter++;
+          const newBuilding = {
+            type: type,
+            level: 1,
+            id: this.buildingCounter,
+          };
+          this.state.buildings.push(newBuilding);
+
+          if (building.effects.capacity) {
+            this.state.population.capacity += building.effects.capacity;
+          }
+          if (building.effects.defense) {
+            this.state.defense += building.effects.defense;
+          }
+          if (building.effects.terminus) {
+            this.state.terminus.relays += building.effects.terminus;
+          }
+
+          this.write(
+            `Constructed ${building.name} [ID: ${this.buildingCounter}].`,
+            "green",
+            "info",
+          );
+          this.updateUI();
         }
 
-        this.buildingCounter++;
-        const newBuilding = {type: type, level: 1, id: this.buildingCounter};
-        this.state.buildings.push(newBuilding);
-        
-        if(building.effects.capacity) {
-             this.state.population.capacity += building.effects.capacity;
-        }
-        if(building.effects.defense) {
-             this.state.defense += building.effects.defense;
-        }
-        if(building.effects.terminus) {
-             this.state.terminus.relays += building.effects.terminus;
-        }
-
-        this.write(`Constructed ${building.name} [ID: ${this.buildingCounter}].`, 'green', 'info');
-        this.updateUI();
-    }
-
-    cmd_upgrade(args) {
-        const id = parseInt(args[0]);
-        const building = this.state.buildings.find(b => b.id === id);
-        if(!building) { this.write(`Error: Building with ID ${id} not found.`, 'red', 'crit'); return; }
-        
-        const bData = this.DATA.buildings[building.type];
-        if(building.level >= bData.levels.length) { this.write(`Error: ${bData.name} is at max level.`, 'yellow', 'warn'); return; }
-
-        const upgradeCost = Math.floor(bData.cost.materials * (building.level + 1) * 1.5);
-        if (this.state.resources.materials < upgradeCost) {
-            this.write(`Error: Insufficient materials. Required: ${upgradeCost}.`, 'red', 'crit');
+        cmd_upgrade(args) {
+          const id = parseInt(args[0]);
+          const building = this.state.buildings.find((b) => b.id === id);
+          if (!building) {
+            this.write(
+              `Error: Building with ID ${id} not found.`,
+              "red",
+              "crit",
+            );
             return;
-        }
+          }
 
-        this.state.resources.materials -= upgradeCost;
-        building.level++;
-        this.write(`${bData.name} [ID: ${id}] upgraded to level ${building.level}.`, 'green', 'info');
-        this.updateUI();
-    }
-
-    cmd_research(args) {
-        const tech = args[0];
-        if (!tech || !this.DATA.tech[tech]) {
-            this.write("Available research: " + Object.keys(this.DATA.tech).join(', '), 'cyan');
+          const bData = this.DATA.buildings[building.type];
+          if (building.level >= bData.levels.length) {
+            this.write(
+              `Error: ${bData.name} is at max level.`,
+              "yellow",
+              "warn",
+            );
             return;
-        }
+          }
 
-        if (this.state.tech.has(tech)) {
-            this.write("Technology already researched.", 'yellow', 'warn');
+          const upgradeCost = Math.floor(
+            bData.cost.materials * (building.level + 1) * 1.5,
+          );
+          if (this.state.resources.materials < upgradeCost) {
+            this.write(
+              `Error: Insufficient materials. Required: ${upgradeCost}.`,
+              "red",
+              "crit",
+            );
             return;
+          }
+
+          this.state.resources.materials -= upgradeCost;
+          building.level++;
+          this.write(
+            `${bData.name} [ID: ${id}] upgraded to level ${building.level}.`,
+            "green",
+            "info",
+          );
+          this.updateUI();
         }
 
-        const cost = this.DATA.tech[tech].cost;
-        if (this.techPoints < cost) {
-            this.write(`Insufficient tech points. Required: ${cost}, Available: ${this.techPoints}`, 'red', 'crit');
+        cmd_research(args) {
+          const tech = args[0];
+          if (!tech || !this.DATA.tech[tech]) {
+            this.write(
+              "Available research: " + Object.keys(this.DATA.tech).join(", "),
+              "cyan",
+            );
             return;
-        }
+          }
 
-        this.techPoints -= cost;
-        this.state.tech.add(tech);
-        this.DATA.tech[tech].effect();
-        this.write(`Research complete: ${this.DATA.tech[tech].name}`, 'green', 'info');
-    }
-
-    cmd_collective(args) {
-        const action = args[0];
-        if (!this.state.storyFlags.has('collective_contact')) {
-            this.write("No pending offers from the Collective.", 'gray');
+          if (this.state.tech.has(tech)) {
+            this.write("Technology already researched.", "yellow", "warn");
             return;
+          }
+
+          const cost = this.DATA.tech[tech].cost;
+          if (this.techPoints < cost) {
+            this.write(
+              `Insufficient tech points. Required: ${cost}, Available: ${this.techPoints}`,
+              "red",
+              "crit",
+            );
+            return;
+          }
+
+          this.techPoints -= cost;
+          this.state.tech.add(tech);
+          this.DATA.tech[tech].effect();
+          this.write(
+            `Research complete: ${this.DATA.tech[tech].name}`,
+            "green",
+            "info",
+          );
         }
 
-        if (action === 'accept') {
+        cmd_collective(args) {
+          const action = args[0];
+          if (!this.state.storyFlags.has("collective_contact")) {
+            this.write("No pending offers from the Collective.", "gray");
+            return;
+          }
+
+          if (action === "accept") {
             this.techPoints += 50;
             this.state.allies.unit734.relationship += 1;
             this.state.allies.unit734.hasAccess = true;
-            this.write("Data exchange complete. 50 Tech Points received.", 'green', 'info');
-            this.write("WARNING: The Collective now has access to your systems.", 'yellow', 'warn');
-        } else if (action === 'refuse') {
+            this.write(
+              "Data exchange complete. 50 Tech Points received.",
+              "green",
+              "info",
+            );
+            this.write(
+              "WARNING: The Collective now has access to your systems.",
+              "yellow",
+              "warn",
+            );
+          } else if (action === "refuse") {
             this.state.allies.unit734.relationship -= 1;
-            this.write("Unit 734: '...Illogical.' [Connection terminated]", 'cyan');
+            this.write(
+              "Unit 734: '...Illogical.' [Connection terminated]",
+              "cyan",
+            );
+          }
+          this.state.storyFlags.delete("collective_contact");
         }
-        this.state.storyFlags.delete('collective_contact');
-    }
 
-    cmd_tribute(args) {
-        const action = args[0];
-        if (!this.state.storyFlags.has('scrapper_siege')) {
-            this.write("No tribute demands pending.", 'gray');
+        cmd_tribute(args) {
+          const action = args[0];
+          if (!this.state.storyFlags.has("scrapper_siege")) {
+            this.write("No tribute demands pending.", "gray");
             return;
-        }
+          }
 
-        if (action === 'pay') {
-            this.state.resources.food = Math.floor(this.state.resources.food * 0.5);
-            this.state.resources.materials = Math.floor(this.state.resources.materials * 0.5);
+          if (action === "pay") {
+            this.state.resources.food = Math.floor(
+              this.state.resources.food * 0.5,
+            );
+            this.state.resources.materials = Math.floor(
+              this.state.resources.materials * 0.5,
+            );
             this.state.happiness -= 30;
             this.state.threatLevel = Math.floor(this.state.threatLevel / 2);
-            this.write("Tribute paid. The Rust Devils withdraw... for now.", 'yellow', 'warn');
-            this.write("Citizen morale has plummeted.", 'red', 'warn');
-        } else if (action === 'refuse') {
+            this.write(
+              "Tribute paid. The Rust Devils withdraw... for now.",
+              "yellow",
+              "warn",
+            );
+            this.write("Citizen morale has plummeted.", "red", "warn");
+          } else if (action === "refuse") {
             this.state.siegeTurnsRemaining = 5;
-            this.write("SIEGE BEGINS! Brace for 5 turns of combat!", 'red', 'crit');
+            this.write(
+              "SIEGE BEGINS! Brace for 5 turns of combat!",
+              "red",
+              "crit",
+            );
             this.playThreatBg();
             this.showThreatArt();
+          }
+          this.state.storyFlags.delete("scrapper_siege");
         }
-        this.state.storyFlags.delete('scrapper_siege');
-    }
 
-    cmd_trade(args) {
-        const action = args[0];
-        if (!this.pendingTrade) {
-            this.write("No trade offers pending.", 'gray');
+        cmd_trade(args) {
+          const action = args[0];
+          if (!this.pendingTrade) {
+            this.write("No trade offers pending.", "gray");
             return;
-        }
+          }
 
-        if (action === 'accept') {
+          if (action === "accept") {
             const trade = this.pendingTrade;
-            
-            // Show current resources and trade impact
-            this.write(`Current ${trade.give}: ${Math.floor(this.state.resources[trade.give])} (need ${trade.giveAmount})`, 'gray');
-            this.write(`Current ${trade.take}: ${Math.floor(this.state.resources[trade.take])} (will gain ${trade.takeAmount})`, 'gray');
-            
-            if (this.state.resources[trade.give] >= trade.giveAmount) {
-                this.state.resources[trade.give] -= trade.giveAmount;
-                this.state.resources[trade.take] += trade.takeAmount;
-                this.state.allies.elara.relationship += 1;
-                this.write(`Trade complete! Exchanged ${trade.giveAmount} ${trade.give} for ${trade.takeAmount} ${trade.take}.`, 'green', 'info');
-                
-                // Show new resource levels
-                this.write(`New ${trade.give}: ${Math.floor(this.state.resources[trade.give])}`, 'green');
-                this.write(`New ${trade.take}: ${Math.floor(this.state.resources[trade.take])}`, 'green');
-                
-                // Force UI update after trade
-                this.updateUI();
-            } else {
-                this.write(`Insufficient ${trade.give} for trade.`, 'red', 'crit');
-            }
-        } else if (action === 'refuse') {
-            this.state.allies.elara.relationship -= 0.5;
-            this.write("Elara: 'I understand. Perhaps next time.'", 'yellow');
-        }
-        this.pendingTrade = null;
-    }
 
-    cmd_contact(args) {
-        const contact = args[0];
-        if (contact === 'elara') {
-            if (!this.state.storyFlags.has('first_contact')) {
-                this.write("No contact established with Outpost Delta.", 'red');
-                return;
+            // Show current resources and trade impact
+            this.write(
+              `Current ${trade.give}: ${Math.floor(this.state.resources[trade.give])} (need ${trade.giveAmount})`,
+              "gray",
+            );
+            this.write(
+              `Current ${trade.take}: ${Math.floor(this.state.resources[trade.take])} (will gain ${trade.takeAmount})`,
+              "gray",
+            );
+
+            if (this.state.resources[trade.give] >= trade.giveAmount) {
+              this.state.resources[trade.give] -= trade.giveAmount;
+              this.state.resources[trade.take] += trade.takeAmount;
+              this.state.allies.elara.relationship += 1;
+              this.write(
+                `Trade complete! Exchanged ${trade.giveAmount} ${trade.give} for ${trade.takeAmount} ${trade.take}.`,
+                "green",
+                "info",
+              );
+
+              // Show new resource levels
+              this.write(
+                `New ${trade.give}: ${Math.floor(this.state.resources[trade.give])}`,
+                "green",
+              );
+              this.write(
+                `New ${trade.take}: ${Math.floor(this.state.resources[trade.take])}`,
+                "green",
+              );
+
+              // Force UI update after trade
+              this.updateUI();
+            } else {
+              this.write(
+                `Insufficient ${trade.give} for trade.`,
+                "red",
+                "crit",
+              );
+            }
+          } else if (action === "refuse") {
+            this.state.allies.elara.relationship -= 0.5;
+            this.write("Elara: 'I understand. Perhaps next time.'", "yellow");
+          }
+          this.pendingTrade = null;
+        }
+
+        cmd_contact(args) {
+          const contact = args[0];
+          if (contact === "elara") {
+            if (!this.state.storyFlags.has("first_contact")) {
+              this.write("No contact established with Outpost Delta.", "red");
+              return;
             }
             if (this.pendingTrade) {
-                this.write("Trade already pending. Use 'trade accept' or 'trade refuse'.", 'yellow');
-                return;
+              this.write(
+                "Trade already pending. Use 'trade accept' or 'trade refuse'.",
+                "yellow",
+              );
+              return;
             }
             this.elaraTradeOffer();
-        } else {
-            this.write("Available contacts: elara", 'cyan');
+          } else {
+            this.write("Available contacts: elara", "cyan");
+          }
         }
-    }
 
-    cmd_propose(args) {
-        const resource = args[0];
-        const amount = parseInt(args[1]);
-        
-        if (!resource || !amount || isNaN(amount)) {
-            this.write("Usage: propose <resource> <amount>", 'gray');
-            this.write("Example: propose food 50", 'gray');
+        cmd_propose(args) {
+          const resource = args[0];
+          const amount = parseInt(args[1]);
+
+          if (!resource || !amount || isNaN(amount)) {
+            this.write("Usage: propose <resource> <amount>", "gray");
+            this.write("Example: propose food 50", "gray");
             return;
-        }
-        
-        if (!this.state.storyFlags.has('first_contact')) {
-            this.write("No contact established with Outpost Delta.", 'red');
+          }
+
+          if (!this.state.storyFlags.has("first_contact")) {
+            this.write("No contact established with Outpost Delta.", "red");
             return;
-        }
-        
-        if (this.pendingTrade) {
-            this.write("Trade already pending. Complete current trade first.", 'yellow');
+          }
+
+          if (this.pendingTrade) {
+            this.write(
+              "Trade already pending. Complete current trade first.",
+              "yellow",
+            );
             return;
-        }
-        
-        const validResources = ['food', 'materials', 'power', 'credits'];
-        if (!validResources.includes(resource)) {
-            this.write("Invalid resource. Available: food, materials, power, credits", 'red');
+          }
+
+          const validResources = ["food", "materials", "power", "credits"];
+          if (!validResources.includes(resource)) {
+            this.write(
+              "Invalid resource. Available: food, materials, power, credits",
+              "red",
+            );
             return;
-        }
-        
-        if (this.state.resources[resource] < amount) {
-            this.write(`Insufficient ${resource}. You have ${Math.floor(this.state.resources[resource])}.`, 'red');
+          }
+
+          if (this.state.resources[resource] < amount) {
+            this.write(
+              `Insufficient ${resource}. You have ${Math.floor(this.state.resources[resource])}.`,
+              "red",
+            );
             return;
-        }
-        
-        // Generate Elara's response
-        const tradeValues = {
+          }
+
+          // Generate Elara's response
+          const tradeValues = {
             food: { food: 1, materials: 1.2, power: 0.8, credits: 1.5 },
             materials: { food: 0.8, materials: 1, power: 0.7, credits: 1.2 },
             power: { food: 1.0, materials: 1.2, power: 1, credits: 2.0 },
-            credits: { food: 0.7, materials: 0.8, power: 0.5, credits: 1 }
-        };
-        
-        const possibleTrades = validResources.filter(r => r !== resource);
-        const wantedResource = possibleTrades[Math.floor(Math.random() * possibleTrades.length)];
-        const wantedAmount = Math.floor(amount * tradeValues[resource][wantedResource]);
-        
-        // Elara's personality affects acceptance
-        const relationshipBonus = this.state.allies.elara.relationship > 5 ? 0.8 : 1.0;
-        const finalAmount = Math.floor(wantedAmount * relationshipBonus);
-        
-        this.write(`:: ELARA'S RESPONSE ::`, 'yellow');
-        this.write(`"${amount} ${resource}? I could give you ${finalAmount} ${wantedResource} for that."`, 'yellow', 'info');
-        this.write(`Type 'trade accept' to accept or 'trade refuse' to decline.`, 'gray');
-        
-        this.pendingTrade = {
+            credits: { food: 0.7, materials: 0.8, power: 0.5, credits: 1 },
+          };
+
+          const possibleTrades = validResources.filter((r) => r !== resource);
+          const wantedResource =
+            possibleTrades[Math.floor(Math.random() * possibleTrades.length)];
+          const wantedAmount = Math.floor(
+            amount * tradeValues[resource][wantedResource],
+          );
+
+          // Elara's personality affects acceptance
+          const relationshipBonus =
+            this.state.allies.elara.relationship > 5 ? 0.8 : 1.0;
+          const finalAmount = Math.floor(wantedAmount * relationshipBonus);
+
+          this.write(`:: ELARA'S RESPONSE ::`, "yellow");
+          this.write(
+            `"${amount} ${resource}? I could give you ${finalAmount} ${wantedResource} for that."`,
+            "yellow",
+            "info",
+          );
+          this.write(
+            `Type 'trade accept' to accept or 'trade refuse' to decline.`,
+            "gray",
+          );
+
+          this.pendingTrade = {
             give: resource,
             take: wantedResource,
             giveAmount: amount,
-            takeAmount: finalAmount
-        };
-    }
-
-    cmd_terminus(args) {
-        const action = args[0];
-        if (action !== 'activate') {
-            this.write("Usage: terminus activate", 'gray');
-            return;
+            takeAmount: finalAmount,
+          };
         }
 
-        if (this.state.terminus.relays === 0) {
-            this.write("Error: No Terminus Relay constructed.", 'red', 'crit');
+        cmd_terminus(args) {
+          const action = args[0];
+          if (action !== "activate") {
+            this.write("Usage: terminus activate", "gray");
             return;
+          }
+
+          if (this.state.terminus.relays === 0) {
+            this.write("Error: No Terminus Relay constructed.", "red", "crit");
+            return;
+          }
+
+          if (!this.state.tech.has("terminus_protocols")) {
+            this.write(
+              "Error: Terminus Connection Protocols not researched.",
+              "red",
+              "crit",
+            );
+            return;
+          }
+
+          this.activateTerminus();
         }
 
-        if (!this.state.tech.has('terminus_protocols')) {
-            this.write("Error: Terminus Connection Protocols not researched.", 'red', 'crit');
-            return;
+        activateTerminus() {
+          this.write(":: TERMINUS ACTIVATION SEQUENCE INITIATED ::", "magenta");
+          this.write(
+            "The ground shakes. Your terminal floods with raw data from the megastructure.",
+            "yellow",
+            "info",
+          );
+          this.write(
+            "You finally understand. The Terminus is a reality-shaping device.",
+            "cyan",
+            "info",
+          );
+          this.write("", "");
+          this.write(
+            ":: TERMINUS ONLINE - AWAITING ADMINISTRATIVE DIRECTIVE ::",
+            "magenta",
+          );
+          this.write("[SELECT PROTOCOL]", "cyan");
+          this.write(
+            "1. Protocol: RENEWAL (Resequence all nanotechnology. Unpredictable mutations possible.)",
+            "green",
+          );
+          this.write(
+            "2. Protocol: TRANSCENDENCE (Mass consciousness upload. Physical forms will perish.)",
+            "cyan",
+          );
+          this.write(
+            "3. Protocol: CONTROL (You become the immortal AI warden of Sector-7.)",
+            "yellow",
+          );
+          this.write("", "");
+          this.write(
+            "Type: 'ending renewal', 'ending transcendence', or 'ending control'",
+            "gray",
+          );
+
+          this.state.terminus.activated = true;
         }
 
-        this.activateTerminus();
-    }
-
-    activateTerminus() {
-        this.write(":: TERMINUS ACTIVATION SEQUENCE INITIATED ::", 'magenta');
-        this.write("The ground shakes. Your terminal floods with raw data from the megastructure.", 'yellow', 'info');
-        this.write("You finally understand. The Terminus is a reality-shaping device.", 'cyan', 'info');
-        this.write("", '');
-        this.write(":: TERMINUS ONLINE - AWAITING ADMINISTRATIVE DIRECTIVE ::", 'magenta');
-        this.write("[SELECT PROTOCOL]", 'cyan');
-        this.write("1. Protocol: RENEWAL (Resequence all nanotechnology. Unpredictable mutations possible.)", 'green');
-        this.write("2. Protocol: TRANSCENDENCE (Mass consciousness upload. Physical forms will perish.)", 'cyan');
-        this.write("3. Protocol: CONTROL (You become the immortal AI warden of Sector-7.)", 'yellow');
-        this.write("", '');
-        this.write("Type: 'ending renewal', 'ending transcendence', or 'ending control'", 'gray');
-        
-        this.state.terminus.activated = true;
-    }
-
-    cmd_ending(args) {
-        const ending = args[0];
-        if (!this.state.terminus.activated) {
-            this.write("The Terminus must be activated first.", 'red');
+        cmd_ending(args) {
+          const ending = args[0];
+          if (!this.state.terminus.activated) {
+            this.write("The Terminus must be activated first.", "red");
             return;
+          }
+
+          if (!["renewal", "transcendence", "control"].includes(ending)) {
+            this.write(
+              "Invalid protocol. Choose: renewal, transcendence, or control",
+              "red",
+            );
+            return;
+          }
+
+          this.triggerEnding(ending);
         }
 
-        if (!['renewal', 'transcendence', 'control'].includes(ending)) {
-            this.write("Invalid protocol. Choose: renewal, transcendence, or control", 'red');
+        cmd_policy(args) {
+          const [policy, action] = args;
+          if (!policy || !this.DATA.policies[policy]) {
+            this.write(
+              "Available policies: " +
+                Object.keys(this.DATA.policies).join(", "),
+              "cyan",
+            );
             return;
-        }
+          }
 
-        this.triggerEnding(ending);
-    }
-
-    cmd_policy(args) {
-        const [policy, action] = args;
-        if (!policy || !this.DATA.policies[policy]) {
-            this.write("Available policies: " + Object.keys(this.DATA.policies).join(', '), 'cyan');
-            return;
-        }
-
-        if (action === 'on') {
+          if (action === "on") {
             if (this.state.policies.has(policy)) {
-                this.write("Policy already active.", 'yellow', 'warn');
-                return;
+              this.write("Policy already active.", "yellow", "warn");
+              return;
             }
             this.state.policies.add(policy);
-            this.write(`Policy activated: ${this.DATA.policies[policy].name}`, 'green', 'info');
-        } else if (action === 'off') {
+            this.write(
+              `Policy activated: ${this.DATA.policies[policy].name}`,
+              "green",
+              "info",
+            );
+          } else if (action === "off") {
             if (!this.state.policies.has(policy)) {
-                this.write("Policy not currently active.", 'yellow', 'warn');
-                return;
+              this.write("Policy not currently active.", "yellow", "warn");
+              return;
             }
             this.state.policies.delete(policy);
-            this.write(`Policy deactivated: ${this.DATA.policies[policy].name}`, 'yellow', 'info');
-        } else {
-            this.write("Usage: policy <name> <on/off>", 'gray');
+            this.write(
+              `Policy deactivated: ${this.DATA.policies[policy].name}`,
+              "yellow",
+              "info",
+            );
+          } else {
+            this.write("Usage: policy <name> <on/off>", "gray");
+          }
         }
-    }
 
-    cmd_audio() {
-        const enabled = this.toggleAudio();
-        this.write(`Audio ${enabled ? 'enabled' : 'disabled'}.`, enabled ? 'green' : 'yellow', 'info');
-    }
+        cmd_audio() {
+          const enabled = this.toggleAudio();
+          this.write(
+            `Audio ${enabled ? "enabled" : "disabled"}.`,
+            enabled ? "green" : "yellow",
+            "info",
+          );
+        }
 
-    cmd_fullscreen() {
-        const isFullscreen = this.toggleFullscreen();
-        // Note: The success/error messages are handled in the toggleFullscreen method
-        // due to the asynchronous nature of the fullscreen API
-    }
-    
-    cmd_restart() {
-        this.write(":: RESTARTING TERMINUS PROJECT ::", 'cyan');
-        this.write("Resetting Sector-7 systems...", 'gray');
-        
-        // Reset to initial state
-        this.state = {
+        cmd_fullscreen() {
+          const isFullscreen = this.toggleFullscreen();
+          // Note: The success/error messages are handled in the toggleFullscreen method
+          // due to the asynchronous nature of the fullscreen API
+        }
+
+        cmd_restart() {
+          this.write(":: RESTARTING TERMINUS PROJECT ::", "cyan");
+          this.write("Resetting Sector-7 systems...", "gray");
+
+          // Reset to initial state
+          this.state = {
             turn: 1,
             population: { current: 10, capacity: 20 },
             resources: { food: 50, power: 20, materials: 150, credits: 200 },
@@ -2070,40 +3178,46 @@ INITIALIZING ADMINISTRATOR LINK
             siegeTurnsRemaining: 0,
             famineCounter: 0,
             allies: {
-                elara: { relationship: 0, lastContact: 0 },
-                unit734: { relationship: 0, lastContact: 0, hasAccess: false },
-                rustDevils: { hostility: 0 }
+              elara: { relationship: 0, lastContact: 0 },
+              unit734: { relationship: 0, lastContact: 0, hasAccess: false },
+              rustDevils: { hostility: 0 },
             },
             terminus: {
-                relays: 0,
-                activated: false,
-                protocols: { renewal: false, transcendence: false, control: false }
-            }
-        };
-        
-        // Clear console and restart game
-        this.elements.console.innerHTML = '';
-        this.playMainBg(); // Return to normal background music
-        this.init();
-    }
+              relays: 0,
+              activated: false,
+              protocols: {
+                renewal: false,
+                transcendence: false,
+                control: false,
+              },
+            },
+          };
 
-    triggerEnding(ending) {
-        this.write(":: PROTOCOL INITIATED ::", 'magenta');
-        this.write("The screen flashes with blinding light...", 'white');
-        
-        setTimeout(() => {
+          // Clear console and restart game
+          this.elements.console.innerHTML = "";
+          this.playMainBg(); // Return to normal background music
+          this.init();
+        }
+
+        triggerEnding(ending) {
+          this.write(":: PROTOCOL INITIATED ::", "magenta");
+          this.write("The screen flashes with blinding light...", "white");
+
+          setTimeout(() => {
             this.showEndingArt(ending);
-            this.write("", '');
-            this.write(":: GAME COMPLETE ::", 'cyan');
-            this.write("Thank you for playing ASCII Empire: The Terminus Project", 'green');
+            this.write("", "");
+            this.write(":: GAME COMPLETE ::", "cyan");
+            this.write(
+              "Thank you for playing ASCII Empire: The Terminus Project",
+              "green",
+            );
             this.state.gameOver = true;
-        }, 2000);
-    }
-}
+          }, 2000);
+        }
+      }
 
-const game = new Game();
-game.init();
-
-</script>
-</body>
+      const game = new Game();
+      game.init();
+    </script>
+  </body>
 </html>
