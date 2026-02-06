@@ -198,6 +198,36 @@
       color: var(--text-color-dim);
     }
 
+    #autocomplete-suggestions {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      background: var(--dark-background);
+      border: 1px solid var(--border-color);
+      color: var(--glow-color);
+      font-size: 0.9em;
+      max-height: 150px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    #autocomplete-suggestions.active {
+      display: block;
+    }
+
+    #autocomplete-suggestions .suggestion {
+      padding: 0.3rem 0.5rem;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: all 0.1s ease;
+    }
+
+    #autocomplete-suggestions .suggestion:hover,
+    #autocomplete-suggestions .suggestion.selected {
+      background: var(--border-color);
+      border-left-color: var(--glow-color);
+      color: #ffffff;
+    }
+
     #cursor {
       width: 1ch;
       height: 1.2em;
@@ -614,6 +644,7 @@
           <input id="input" autocomplete="off" placeholder="Type 'help' to initialize system..." />
           <div id="cursor"></div>
         </div>
+        <div id="autocomplete-suggestions"></div>
       </div>
     </main>
 
@@ -772,6 +803,7 @@
           resourceBars: document.getElementById('resource-bars'),
           cityArt: document.getElementById('city-art'),
           alertStatus: document.getElementById('alert-status'),
+          suggestionsContainer: document.getElementById('autocomplete-suggestions'),
         };
 
         // Audio system - with offline fallback
@@ -790,6 +822,35 @@
 
         this.commandHistory = [];
         this.historyIndex = -1;
+        this.historyDraft = "";
+        this.isHistoryNavigating = false;
+        this.currentSuggestions = [];
+        this.selectedSuggestionIndex = -1;
+        this.currentSuggestions = [];
+        this.selectedSuggestionIndex = -1;
+        this.commandList = [
+          "help",
+          "status",
+          "resources",
+          "pass",
+          "emergency",
+          "build",
+          "upgrade",
+          "policy",
+          "research",
+          "collective",
+          "tribute",
+          "trade",
+          "propose",
+          "contact",
+          "terminus",
+          "ending",
+          "audio",
+          "fullscreen",
+          "restart",
+          "save",
+          "reset",
+        ];
 
         this.DATA = {
           buildings: {
@@ -1409,6 +1470,15 @@ INITIALIZING ADMINISTRATOR LINK
 
         this.elements.input.addEventListener('keydown', this.handleInput.bind(this));
         this.elements.input.addEventListener('keydown', this.handleAutocomplete.bind(this));
+        this.elements.input.addEventListener('input', () => {
+          if (this.isHistoryNavigating) return;
+          if (this.historyIndex !== -1) {
+            this.historyIndex = -1;
+          }
+          this.historyDraft = this.elements.input.value;
+          this.updateLiveAutocomplete();
+        });
+        this.elements.input.addEventListener('keydown', this.handleSuggestionNav.bind(this));
 
         // Add keyboard scrolling for console
         this.elements.console.addEventListener('keydown', this.handleConsoleKeys.bind(this));
@@ -1562,31 +1632,69 @@ INITIALIZING ADMINISTRATOR LINK
       handleInput(e) {
         switch (e.key) {
           case "Enter":
+            if (this.selectedSuggestionIndex >= 0 && this.currentSuggestions.length > 0) {
+              e.preventDefault();
+              this.selectSuggestion(this.selectedSuggestionIndex);
+              return;
+            }
+            this.hideSuggestions();
             const command = this.elements.input.value.trim();
             if (command) {
               this.write(`> ${command}`, "gray");
               this.commandHistory.unshift(command);
               this.historyIndex = -1;
+              this.historyDraft = "";
               this.parseCommand(command);
             }
             this.elements.input.value = "";
             break;
           case 'ArrowUp':
+            if (this.currentSuggestions.length > 0) {
+              e.preventDefault();
+              return; // Let handleSuggestionNav handle it
+            }
             e.preventDefault();
+            if (!this.commandHistory.length) {
+              return;
+            }
+            if (this.historyIndex === -1) {
+              this.historyDraft = this.elements.input.value;
+            }
             if (this.historyIndex < this.commandHistory.length - 1) {
               this.historyIndex++;
+              this.isHistoryNavigating = true;
               this.elements.input.value = this.commandHistory[this.historyIndex];
+              this.elements.input.setSelectionRange(
+                this.elements.input.value.length,
+                this.elements.input.value.length,
+              );
+              this.isHistoryNavigating = false;
             }
             break;
           case "ArrowDown":
+            if (this.currentSuggestions.length > 0) {
+              e.preventDefault();
+              return; // Let handleSuggestionNav handle it
+            }
             e.preventDefault();
             if (this.historyIndex > 0) {
               this.historyIndex--;
-              this.elements.input.value =
-                this.commandHistory[this.historyIndex];
+              this.isHistoryNavigating = true;
+              this.elements.input.value = this.commandHistory[this.historyIndex];
+              this.elements.input.setSelectionRange(
+                this.elements.input.value.length,
+                this.elements.input.value.length,
+              );
+              this.isHistoryNavigating = false;
             } else {
               this.historyIndex = -1;
-              this.elements.input.value = "";
+              this.isHistoryNavigating = true;
+              this.elements.input.value = this.historyDraft || "";
+              this.elements.input.setSelectionRange(
+                this.elements.input.value.length,
+                this.elements.input.value.length,
+              );
+              this.isHistoryNavigating = false;
             }
             break;
         }
@@ -1597,43 +1705,245 @@ INITIALIZING ADMINISTRATOR LINK
         if (e.key !== "Tab") return;
         e.preventDefault();
         const input = e.target;
-        const value = input.value;
+        const value = input.value.trim();
+        
+        // If empty, show available commands
+        if (!value) {
+          this.write("Available commands: " + this.commandList.join(", "), "cyan");
+          return;
+        }
+
         const cursorPos = input.selectionStart;
         const beforeCursor = value.slice(0, cursorPos);
         const afterCursor = value.slice(cursorPos);
 
-        // Split command and args
         const tokens = beforeCursor.split(/\s+/);
-        const cmd = tokens[0];
-        const arg = tokens[tokens.length - 1];
+        const tokenIndex = tokens.length - 1;
+        const currentToken = tokens[tokenIndex] || "";
+        const cmd = (tokens[0] || "").toLowerCase();
 
-        // Autocomplete sources
         let options = [];
-        if (cmd === "build") {
-          options = Object.keys(this.DATA.buildings);
-        } else if (cmd === "policy") {
+        if (tokenIndex === 0) {
+          options = this.commandList;
+        } else if (cmd === "build" && tokenIndex === 1) {
+          options = this.getUnlockedBuildingTypes();
+        } else if (cmd === "policy" && tokenIndex === 1) {
           options = Object.keys(this.DATA.policies);
-        } else if (cmd === "research") {
+        } else if (cmd === "policy" && tokenIndex === 2) {
+          options = ["on", "off"];
+        } else if (cmd === "research" && tokenIndex === 1) {
           options = Object.keys(this.DATA.tech);
+        } else if (cmd === "upgrade" && tokenIndex === 1) {
+          options = this.getUpgradeableBuildingIds();
+        } else if (cmd === "trade" && tokenIndex === 1) {
+          options = ["accept", "refuse"];
+        } else if (cmd === "collective" && tokenIndex === 1) {
+          options = ["accept", "refuse"];
+        } else if (cmd === "tribute" && tokenIndex === 1) {
+          options = ["pay", "refuse"];
+        } else if (cmd === "terminus" && tokenIndex === 1) {
+          options = ["activate"];
+        } else if (cmd === "ending" && tokenIndex === 1) {
+          options = ["renewal", "transcendence", "control"];
+        } else if (cmd === "contact" && tokenIndex === 1) {
+          options = ["elara"];
+        } else if (cmd === "propose" && tokenIndex === 1) {
+          options = ["food", "materials", "power", "credits"];
         }
 
-        // Only autocomplete if options available and arg is not empty
-        if (options.length && arg) {
-          const matches = options.filter((opt) => opt.startsWith(arg));
-          if (matches.length === 1) {
-            // Single match: autocomplete
-            tokens[tokens.length - 1] = matches[0];
+        if (!options.length) return;
+
+        const normalizedToken = currentToken.toLowerCase();
+        const matches = options
+          .map(opt => opt.toLowerCase())
+          .filter((opt) => opt.startsWith(normalizedToken));
+
+        if (matches.length === 0) {
+          this.write("No matches for: " + currentToken, "yellow");
+          return;
+        }
+
+        if (matches.length === 1) {
+          tokens[tokenIndex] = matches[0];
+          const newValue = tokens.join(" ") + afterCursor;
+          input.value = newValue;
+          input.setSelectionRange(newValue.length, newValue.length);
+          return;
+        }
+
+        if (matches.length > 1) {
+          const commonPrefix = this.getCommonPrefix(matches);
+          if (commonPrefix.length > normalizedToken.length) {
+            tokens[tokenIndex] = commonPrefix;
             const newValue = tokens.join(" ") + afterCursor;
             input.value = newValue;
             input.setSelectionRange(newValue.length, newValue.length);
-          } else if (matches.length > 1) {
-            // Multiple matches: show suggestions in console
+          } else {
             this.write(
-              "Autocomplete suggestions: " + matches.join(", "),
+              "Suggestions: " + matches.join(", "),
               "cyan",
             );
           }
         }
+      }
+
+      getCommonPrefix(values) {
+        if (!values.length) return "";
+        let prefix = values[0];
+        for (let i = 1; i < values.length; i++) {
+          const value = values[i];
+          while (value.indexOf(prefix) !== 0 && prefix) {
+            prefix = prefix.slice(0, -1);
+          }
+          if (!prefix) return "";
+        }
+        return prefix;
+      }
+
+      getUnlockedBuildingTypes() {
+        return Object.keys(this.DATA.buildings).filter(
+          (type) => this.DATA.buildings[type].unlocked !== false,
+        );
+      }
+
+      getUpgradeableBuildingIds() {
+        const ids = this.state.buildings
+          .filter((building) => {
+            const data = this.DATA.buildings[building.type];
+            return Array.isArray(data.levels) && building.level < data.levels.length;
+          })
+          .map((building) => String(building.id));
+        return Array.from(new Set(ids));
+      }
+
+      updateLiveAutocomplete() {
+        const value = this.elements.input.value.trim();
+
+        if (!value) {
+          this.hideSuggestions();
+          return;
+        }
+
+        const tokens = value.split(/\s+/);
+        const tokenIndex = tokens.length - 1;
+        const currentToken = tokens[tokenIndex] || "";
+        const cmd = (tokens[0] || "").toLowerCase();
+
+        let options = [];
+        if (tokenIndex === 0) {
+          options = this.commandList;
+        } else if (cmd === "build" && tokenIndex === 1) {
+          options = this.getUnlockedBuildingTypes();
+        } else if (cmd === "policy" && tokenIndex === 1) {
+          options = Object.keys(this.DATA.policies);
+        } else if (cmd === "policy" && tokenIndex === 2) {
+          options = ["on", "off"];
+        } else if (cmd === "research" && tokenIndex === 1) {
+          options = Object.keys(this.DATA.tech);
+        } else if (cmd === "upgrade" && tokenIndex === 1) {
+          options = this.getUpgradeableBuildingIds();
+        } else if (cmd === "trade" && tokenIndex === 1) {
+          options = ["accept", "refuse"];
+        } else if (cmd === "collective" && tokenIndex === 1) {
+          options = ["accept", "refuse"];
+        } else if (cmd === "tribute" && tokenIndex === 1) {
+          options = ["pay", "refuse"];
+        } else if (cmd === "terminus" && tokenIndex === 1) {
+          options = ["activate"];
+        } else if (cmd === "ending" && tokenIndex === 1) {
+          options = ["renewal", "transcendence", "control"];
+        } else if (cmd === "contact" && tokenIndex === 1) {
+          options = ["elara"];
+        } else if (cmd === "propose" && tokenIndex === 1) {
+          options = ["food", "materials", "power", "credits"];
+        }
+
+        if (!options.length) {
+          this.hideSuggestions();
+          return;
+        }
+
+        const normalizedToken = currentToken.toLowerCase();
+        const matches = options
+          .map(opt => opt.toLowerCase())
+          .filter((opt) => opt.includes(normalizedToken));
+
+        if (matches.length === 0) {
+          this.hideSuggestions();
+          return;
+        }
+
+        this.showSuggestions(matches);
+      }
+
+      showSuggestions(matches) {
+        this.currentSuggestions = matches;
+        this.selectedSuggestionIndex = -1;
+
+        const container = this.elements.suggestionsContainer;
+        container.innerHTML = "";
+        container.classList.add("active");
+
+        matches.slice(0, 10).forEach((match, idx) => {
+          const div = document.createElement("div");
+          div.className = "suggestion";
+          div.textContent = match;
+          div.dataset.index = idx;
+          div.addEventListener("click", () => this.selectSuggestion(idx));
+          div.addEventListener("mouseover", () => {
+            document.querySelectorAll("#autocomplete-suggestions .suggestion").forEach(el => el.classList.remove("selected"));
+            div.classList.add("selected");
+            this.selectedSuggestionIndex = idx;
+          });
+          container.appendChild(div);
+        });
+      }
+
+      hideSuggestions() {
+        this.currentSuggestions = [];
+        this.selectedSuggestionIndex = -1;
+        this.elements.suggestionsContainer.classList.remove("active");
+        this.elements.suggestionsContainer.innerHTML = "";
+      }
+
+      selectSuggestion(index) {
+        if (index < 0 || index >= this.currentSuggestions.length) return;
+
+        const suggestion = this.currentSuggestions[index];
+        const value = this.elements.input.value.trim();
+        const tokens = value.split(/\s+/);
+        tokens[tokens.length - 1] = suggestion;
+        this.elements.input.value = tokens.join(" ") + " ";
+        this.hideSuggestions();
+        this.elements.input.focus();
+      }
+
+      handleSuggestionNav(e) {
+        if (!this.currentSuggestions.length) return;
+
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          this.selectedSuggestionIndex = (this.selectedSuggestionIndex + 1) % this.currentSuggestions.length;
+          this.updateSuggestionHighlight();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          this.selectedSuggestionIndex = (this.selectedSuggestionIndex - 1 + this.currentSuggestions.length) % this.currentSuggestions.length;
+          this.updateSuggestionHighlight();
+        } else if (e.key === "Enter" && this.selectedSuggestionIndex >= 0) {
+          e.preventDefault();
+          this.selectSuggestion(this.selectedSuggestionIndex);
+        }
+      }
+
+      updateSuggestionHighlight() {
+        document.querySelectorAll("#autocomplete-suggestions .suggestion").forEach((el, idx) => {
+          if (idx === this.selectedSuggestionIndex) {
+            el.classList.add("selected");
+            el.scrollIntoView({ block: "nearest" });
+          } else {
+            el.classList.remove("selected");
+          }
+        });
       }
 
       handleConsoleKeys(e) {
@@ -1702,19 +2012,6 @@ INITIALIZING ADMINISTRATOR LINK
           case 'restart': this.cmd_restart(); break;
           case 'save': this.cmd_save(); break;
           case 'reset': this.cmd_reset(); break;
-          default:
-            if (this.state.gameOver) {
-              this.write("Game Over. Type 'restart' to play again or 'help' for commands.", 'yellow');
-            }
-
-            cmd_save(); break;
-          case 'reset': this.cmd_reset(); break;
-          default:
-            if (this.state.gameOver) {
-              this.write("Game Over. Type 'restart' to play again or 'help' for commands.", 'yellow');
-            }
-
-            cmd_reset(); break;
           default:
             if (this.state.gameOver) {
               this.write("Game Over. Type 'restart' to play again or 'help' for commands.", 'yellow');
@@ -2421,6 +2718,7 @@ INITIALIZING ADMINISTRATOR LINK
         this.write("  F11 - Toggle fullscreen mode");
         this.write("  ESC - Exit fullscreen (when in fullscreen)");
         this.write("  PageUp/PageDown - Scroll console");
+        this.write("  ArrowUp/ArrowDown - Navigate command history");
         this.write("  Tab - Autocomplete commands");
         this.write(
           "\n🌐 OFFLINE MODE: Game works completely offline with full audio support!",
