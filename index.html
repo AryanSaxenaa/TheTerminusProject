@@ -431,6 +431,126 @@
       }
     }
 
+    @keyframes screen-shake {
+      0% {
+        transform: translate(0, 0);
+      }
+      15% {
+        transform: translate(-2px, 1px);
+      }
+      30% {
+        transform: translate(2px, -1px);
+      }
+      45% {
+        transform: translate(-3px, 2px);
+      }
+      60% {
+        transform: translate(3px, -2px);
+      }
+      75% {
+        transform: translate(-1px, 1px);
+      }
+      100% {
+        transform: translate(0, 0);
+      }
+    }
+
+    @keyframes chroma-glitch {
+      0% {
+        filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+        transform: translate(0, 0);
+      }
+      20% {
+        filter: drop-shadow(-1px 0 #ff0033) drop-shadow(1px 0 #00ffff);
+        transform: translate(1px, -1px);
+      }
+      40% {
+        filter: drop-shadow(1px 0 #ff0033) drop-shadow(-1px 0 #00ffff);
+        transform: translate(-1px, 1px);
+      }
+      60% {
+        filter: drop-shadow(-2px 0 #ff0033) drop-shadow(2px 0 #00ffff);
+        transform: translate(2px, 0);
+      }
+      80% {
+        filter: drop-shadow(1px 0 #ff0033) drop-shadow(-1px 0 #00ffff);
+        transform: translate(-1px, 0);
+      }
+      100% {
+        filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+        transform: translate(0, 0);
+      }
+    }
+
+    @keyframes crt-flicker {
+      0% {
+        opacity: 1;
+      }
+      8% {
+        opacity: 0.96;
+      }
+      15% {
+        opacity: 0.99;
+      }
+      23% {
+        opacity: 0.97;
+      }
+      35% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.98;
+      }
+      64% {
+        opacity: 1;
+      }
+      78% {
+        opacity: 0.97;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+
+    #game-container {
+      position: relative;
+      will-change: transform, filter;
+    }
+
+    #game-container.fx-shake {
+      animation: screen-shake 0.45s linear 1;
+    }
+
+    #game-container.fx-glitch {
+      animation: chroma-glitch 0.6s steps(2, end) 1;
+    }
+
+    #game-container.fx-glitch::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      opacity: 0.25;
+      background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(255, 0, 80, 0.05) 20%,
+        rgba(0, 255, 255, 0.08) 50%,
+        transparent 80%
+      );
+      mix-blend-mode: screen;
+    }
+
+    #game-container.crt-flicker #console,
+    #game-container.crt-flicker .panel-header,
+    #game-container.crt-flicker #city-art,
+    #game-container.crt-flicker #footer-info {
+      animation: crt-flicker 6s infinite;
+    }
+
     /* Threat and victory states */
     .threat-mode {
       animation: pulse-red 2s infinite;
@@ -832,6 +952,7 @@
         this.isHistoryNavigating = false;
         this.currentSuggestions = [];
         this.selectedSuggestionIndex = -1;
+        this.fxTimers = {};
         this.currentSuggestions = [];
         this.selectedSuggestionIndex = -1;
         this.commandList = [
@@ -1388,6 +1509,8 @@ INITIALIZING ADMINISTRATOR LINK
       }
 
       playThreatBg() {
+        this.triggerShake();
+        this.triggerGlitch();
         console.log(
           "Threat background music triggered - checking conditions...",
         );
@@ -1506,6 +1629,7 @@ INITIALIZING ADMINISTRATOR LINK
         await this.showLoadingScreen();
         this.elements.gameContainer = document.getElementById('game-container');
         this.elements.gameContainer.classList.add('loaded');
+        this.elements.gameContainer.classList.add('crt-flicker');
 
         // Load saved game data first
         const gameLoaded = this.loadGame();
@@ -1857,6 +1981,31 @@ INITIALIZING ADMINISTRATOR LINK
         return Array.from(new Set(ids));
       }
 
+      applyFxClass(className, duration) {
+        const target = this.elements.gameContainer;
+        if (!target) return;
+
+        target.classList.remove(className);
+        void target.offsetWidth;
+        target.classList.add(className);
+
+        if (this.fxTimers[className]) {
+          clearTimeout(this.fxTimers[className]);
+        }
+
+        this.fxTimers[className] = setTimeout(() => {
+          target.classList.remove(className);
+        }, duration);
+      }
+
+      triggerShake() {
+        this.applyFxClass("fx-shake", 450);
+      }
+
+      triggerGlitch() {
+        this.applyFxClass("fx-glitch", 650);
+      }
+
       updateLiveAutocomplete() {
         const value = this.elements.input.value.trim();
 
@@ -2176,6 +2325,7 @@ INITIALIZING ADMINISTRATOR LINK
           this.state.happiness -= 30;
           this.write("FAMINE! Population is starving.", "red", "crit");
           this.playThreatBg();
+          this.triggerShake();
 
           // Escalating famine deaths
           famineCounter++;
@@ -2235,10 +2385,14 @@ INITIALIZING ADMINISTRATOR LINK
           // Reset famine counter when food is available
           this.state.famineCounter = 0;
         }
+        if (this.state.resources.power === 0) {
+          this.triggerGlitch();
+        }
         if (this.state.resources.power < 0) {
           this.state.happiness -= 20;
           this.write("BLACKOUT! City infrastructure failing.", "red", "crit");
           this.playThreatBg();
+          this.triggerGlitch();
         }
         if (this.state.resources.materials < 0) {
           this.state.happiness -= 10;
@@ -2247,6 +2401,7 @@ INITIALIZING ADMINISTRATOR LINK
             "yellow",
             "warn",
           );
+          this.triggerGlitch();
         }
         if (this.state.resources.credits < 0) {
           this.state.happiness -= 15;
@@ -2255,6 +2410,7 @@ INITIALIZING ADMINISTRATOR LINK
             "yellow",
             "warn",
           );
+          this.triggerGlitch();
         }
 
         // Cap resources at storage limits
@@ -2643,6 +2799,7 @@ INITIALIZING ADMINISTRATOR LINK
                 "red",
                 "warn",
               );
+              this.triggerShake();
             }
           }
         }
@@ -3118,6 +3275,7 @@ INITIALIZING ADMINISTRATOR LINK
         this.techPoints -= cost;
         this.state.tech.add(tech);
         this.DATA.tech[tech].effect();
+        this.triggerGlitch();
         this.write(
           `Research complete: ${this.DATA.tech[tech].name}`,
           "green",
