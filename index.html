@@ -627,7 +627,8 @@
 
 <body>
   <div id="loading-screen">
-    <div id="loading-art" aria-label="Animated ASCII art loading screen showing a futuristic system boot sequence"></div>
+    <div id="loading-art" aria-label="Animated ASCII art loading screen showing a futuristic system boot sequence">
+    </div>
     <div class="loading-text" id="loading-text"></div>
   </div>
 
@@ -793,7 +794,8 @@
             activated: false,
             protocols: { renewal: false, transcendence: false, control: false }
           },
-          famineCounter: 0
+          famineCounter: 0,
+          tutorial: { active: true, step: 0 }
         };
 
         this.elements = {
@@ -1153,7 +1155,9 @@ INITIALIZING ADMINISTRATOR LINK
             ...parsed.state,
             tech: new Set(parsed.state.tech || []),
             policies: new Set(parsed.state.policies || []),
-            storyFlags: new Set(parsed.state.storyFlags || [])
+            storyFlags: new Set(parsed.state.storyFlags || []),
+            tutorial: parsed.state.tutorial || { active: true, step: 0 }
+
           };
 
           // Restore additional state variables
@@ -1171,6 +1175,76 @@ INITIALIZING ADMINISTRATOR LINK
           this.write("Load failed: Save data may be corrupted.", 'red', 'warn');
           return false;
         }
+      }
+
+      // --- TUTORIAL / BOOT SEQUENCE SYSTEM ---
+      async runTutorial() {
+        if (!this.state.tutorial || !this.state.tutorial.active) {
+          return;
+        }
+
+        const steps = [
+          ">> BOOT SEQUENCE INITIATED...",
+          ">> Verifying Administrator credentials...",
+          ">> Loading Sector-7 control schema...",
+          ">> Systems degraded. Manual input required.",
+          ">> Type 'help' to see available commands."
+        ];
+
+        for (let i = 0; i < steps.length; i++) {
+          this.write(steps[i], 'cyan');
+          await new Promise(resolve => setTimeout(resolve, 700));
+        }
+
+        this.write(">> Boot sequence complete. Control transferred to Administrator.", 'green');
+
+        // Begin turn-based guidance
+        this.state.tutorial.step = 1;
+      }
+
+      showTutorialForTurn() {
+        if (!this.state.tutorial || !this.state.tutorial.active) return;
+
+        const turn = this.state.turn;
+        if (turn > 5) {
+          this.state.tutorial.active = false;
+          return;
+        }
+
+        if (this.state.tutorial.step !== turn) return;
+
+        this.write("", '');
+        this.write(`:: BOOT SEQUENCE :: TURN ${turn}/5 ::`, 'cyan');
+
+        switch (turn) {
+          case 1:
+            this.write("First breath. Check the consoles before you touch anything.", 'green');
+            this.write("Type: help", 'white');
+            this.write("Then: resources", 'white');
+            break;
+          case 2:
+            this.write("We need shelter to hold the line and start the income trickle.", 'green');
+            this.write("Type: build habitat", 'white');
+            break;
+          case 3:
+            this.write("Trade keeps a settlement honest. Get credits moving.", 'green');
+            this.write("Type: build market", 'white');
+            break;
+          case 4:
+            this.write("Food and power are the two quiet killers. Stabilize one.", 'green');
+            this.write("Type: build hydroponics", 'white');
+            this.write("Or: build fusion", 'white');
+            break;
+          case 5:
+            this.write("You’ve got the basics. Check your footing and move on.", 'green');
+            this.write("Type: status", 'white');
+            this.write("Then: pass", 'white');
+            this.write(":: BOOT SEQUENCE COMPLETE. FULL CONTROL GRANTED. ::", 'cyan');
+            this.state.tutorial.active = false;
+            break;
+        }
+
+        this.state.tutorial.step = turn + 1;
       }
 
       // --- AUDIO SYSTEM ---
@@ -1395,66 +1469,6 @@ INITIALIZING ADMINISTRATOR LINK
         this.elements.cityArt.innerHTML = this.DATA.art.endings[ending];
       }
 
-      // --- DATA PERSISTENCE SYSTEM ---
-      saveGame() {
-        try {
-          // Convert Set objects to arrays for JSON serialization
-          const saveData = {
-            state: {
-              ...this.state,
-              tech: Array.from(this.state.tech),
-              policies: Array.from(this.state.policies),
-              storyFlags: Array.from(this.state.storyFlags)
-            },
-            buildingCounter: this.buildingCounter,
-            techPoints: this.techPoints,
-            commandHistory: this.commandHistory,
-            audioEnabled: this.audioEnabled
-          };
-
-          localStorage.setItem('terminus_save_data', JSON.stringify(saveData));
-          this.write("Game saved successfully.", 'green', 'info');
-        } catch (error) {
-          console.error('Save failed:', error);
-          this.write("Save failed: " + error.message, 'red', 'warn');
-        }
-      }
-
-      loadGame() {
-        try {
-          const saveData = localStorage.getItem('terminus_save_data');
-          if (!saveData) {
-            this.write("No saved game found.", 'yellow', 'info');
-            return false;
-          }
-
-          const parsed = JSON.parse(saveData);
-
-          // Restore state and convert arrays back to Sets
-          this.state = {
-            ...parsed.state,
-            tech: new Set(parsed.state.tech || []),
-            policies: new Set(parsed.state.policies || []),
-            storyFlags: new Set(parsed.state.storyFlags || [])
-          };
-
-          // Restore additional state variables
-          this.buildingCounter = parsed.buildingCounter || 0;
-          this.techPoints = parsed.techPoints || 0;
-          this.commandHistory = parsed.commandHistory || [];
-          this.audioEnabled = parsed.audioEnabled !== undefined ? parsed.audioEnabled : true;
-
-          // Update UI immediately
-          this.updateUI();
-          this.write("Game loaded successfully.", 'green', 'info');
-          return true;
-        } catch (error) {
-          console.error('Load failed:', error);
-          this.write("Load failed: Save data may be corrupted.", 'red', 'warn');
-          return false;
-        }
-      }
-
       async init() {
         await this.showLoadingScreen();
         this.elements.gameContainer = document.getElementById('game-container');
@@ -1520,19 +1534,11 @@ INITIALIZING ADMINISTRATOR LINK
 
         // Only show intro messages if no game was loaded
         if (!gameLoaded) {
-          this.write(":: Booting up Administrator terminal ::", 'cyan');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          this.write(":: Connection established. Sector-7 archives loaded. ::", 'cyan');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          this.write(":: CRITICAL: Settlement population at minimum viable levels ::", 'yellow');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          this.write("Welcome, Administrator. Your objective is to rebuild this settlement and activate the Terminus.", 'green');
-          this.write("The fate of humanity rests in your hands. Type 'help' for commands.", 'green');
+          // Start guided boot sequence
+          await this.runTutorial();
+
           this.write("", '');
           this.write("=== THE TERMINUS PROJECT: BEGIN RECONSTRUCTION ===", 'magenta');
-          this.write("", '');
-          this.write("🎯 SURVIVAL TIP: Build HABITAT first for income, then MARKET for credits!", 'yellow');
-          this.write("⚠️  Avoid building hydroponics first - they drain credits without income!", 'yellow');
           this.write("", '');
           this.write("Starting Resources:", 'cyan');
           this.write(`  Food: ${Math.floor(this.state.resources.food)} | Power: ${Math.floor(this.state.resources.power)} | Materials: ${Math.floor(this.state.resources.materials)} | Credits: ${Math.floor(this.state.resources.credits)}`, 'white');
@@ -1543,6 +1549,7 @@ INITIALIZING ADMINISTRATOR LINK
           this.write("", '');
         }
 
+        this.showTutorialForTurn();
         this.updateUI();
         this.elements.input.focus();
       }
@@ -1706,7 +1713,7 @@ INITIALIZING ADMINISTRATOR LINK
         e.preventDefault();
         const input = e.target;
         const value = input.value.trim();
-        
+
         // If empty, show available commands
         if (!value) {
           this.write("Available commands: " + this.commandList.join(", "), "cyan");
@@ -2342,6 +2349,7 @@ INITIALIZING ADMINISTRATOR LINK
         }
 
         this.updateUI();
+        this.showTutorialForTurn();
       }
 
       updateUI() {
@@ -3455,6 +3463,7 @@ INITIALIZING ADMINISTRATOR LINK
           defense: 0,
           siegeTurnsRemaining: 0,
           famineCounter: 0,
+          tutorial: { active: true, step: 0 },
           allies: {
             elara: { relationship: 0, lastContact: 0 },
             unit734: { relationship: 0, lastContact: 0, hasAccess: false },
