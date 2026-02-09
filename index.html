@@ -821,6 +821,10 @@
         this.initializeAudio();
 
         this.audioEnabled = true; // Allow users to toggle audio
+        this.audioVolume = 1; // 0.0–1.0
+        this.audioMuted = false;
+        this.audioMusicEnabled = true;
+
 
         this.commandHistory = [];
         this.historyIndex = -1;
@@ -1129,7 +1133,10 @@ INITIALIZING ADMINISTRATOR LINK
             buildingCounter: this.buildingCounter,
             techPoints: this.techPoints,
             commandHistory: this.commandHistory,
-            audioEnabled: this.audioEnabled
+            audioEnabled: this.audioEnabled,
+            audioVolume: this.audioVolume,
+            audioMuted: this.audioMuted,
+            audioMusicEnabled: this.audioMusicEnabled
           };
 
           localStorage.setItem('terminus_save_data', JSON.stringify(saveData));
@@ -1165,6 +1172,10 @@ INITIALIZING ADMINISTRATOR LINK
           this.techPoints = parsed.techPoints || 0;
           this.commandHistory = parsed.commandHistory || [];
           this.audioEnabled = parsed.audioEnabled !== undefined ? parsed.audioEnabled : true;
+          this.audioVolume = parsed.audioVolume ?? 1;
+          this.audioMuted = parsed.audioMuted ?? false;
+          this.audioMusicEnabled = parsed.audioMusicEnabled ?? true;
+          this.applyAudioSettings();
 
           // Update UI immediately
           this.updateUI();
@@ -1249,7 +1260,11 @@ INITIALIZING ADMINISTRATOR LINK
 
       // --- AUDIO SYSTEM ---
       playLoadingMusic() {
-        if (this.audioEnabled && this.audio.loadingMusic) {
+        if (
+          this.audioEnabled &&
+          this.audioMusicEnabled &&
+          this.audio.loadingMusic
+        ) {
           // Set loading music to loop and ensure it's audible
           this.audio.loadingMusic.loop = true;
           this.audio.loadingMusic.volume = 0.8;
@@ -1340,9 +1355,26 @@ INITIALIZING ADMINISTRATOR LINK
         }
       }
 
+      applyAudioSettings() {
+        if (!this.audio) return;
+
+        const master = this.audioMuted ? 0 : this.audioVolume;
+
+        if (this.audio.loadingMusic) this.audio.loadingMusic.volume = 0.7 * master;
+        if (this.audio.mainBg) this.audio.mainBg.volume = 0.6 * master;
+        if (this.audio.threatBg) this.audio.threatBg.volume = 0.8 * master;
+
+        if (!this.audioMusicEnabled) {
+          this.stopAllBg();
+          this.stopLoadingMusic();
+        }
+      }
+
+
       playMainBg() {
         if (
           this.audioEnabled &&
+          this.audioMusicEnabled &&
           this.audio.mainBg &&
           this.audio.currentBg !== this.audio.mainBg
         ) {
@@ -1369,6 +1401,7 @@ INITIALIZING ADMINISTRATOR LINK
 
         if (
           this.audioEnabled &&
+          this.audioMusicEnabled &&
           this.audio.threatBg &&
           this.audio.currentBg !== this.audio.threatBg
         ) {
@@ -1476,6 +1509,7 @@ INITIALIZING ADMINISTRATOR LINK
 
         // Load saved game data first
         const gameLoaded = this.loadGame();
+        this.applyAudioSettings();
 
         // Setup input field
         const prompt = document.getElementById('prompt');
@@ -2014,7 +2048,7 @@ INITIALIZING ADMINISTRATOR LINK
           case 'contact': this.cmd_contact(args); break;
           case 'terminus': this.cmd_terminus(args); break;
           case 'ending': this.cmd_ending(args); break;
-          case 'audio': this.cmd_audio(); break;
+          case 'audio': this.cmd_audio(args); break;
           case 'fullscreen': this.cmd_fullscreen(); break;
           case 'restart': this.cmd_restart(); break;
           case 'save': this.cmd_save(); break;
@@ -2677,7 +2711,11 @@ INITIALIZING ADMINISTRATOR LINK
         this.write(
           " terminus <activate> - Activate Terminus (requires relay).",
         );
-        this.write(" audio - Toggle background music on/off.");
+        this.write(" audio - Toggle background music on/off, or:");
+        this.write("   audio mute | audio unmute");
+        this.write("   audio volume 0-100");
+        this.write("   audio music on|off");
+
         this.write(" fullscreen - Toggle fullscreen mode on/off.");
         this.write(" restart - Restart the game (if colony has failed).");
         this.write(
@@ -3427,13 +3465,69 @@ INITIALIZING ADMINISTRATOR LINK
         }
       }
 
-      cmd_audio() {
-        const enabled = this.toggleAudio();
+      cmd_audio(args = []) {
+        const sub = (args[0] || "").toLowerCase();
+        const sub2 = (args[1] || "").toLowerCase();
+
+        if (!sub) {
+          const enabled = this.toggleAudio();
+          this.write(
+            `Audio ${enabled ? "enabled" : "disabled"}.`,
+            enabled ? "green" : "yellow",
+            "info",
+          );
+          return;
+        }
+
+        if (sub === "mute") {
+          this.audioMuted = true;
+          this.applyAudioSettings();
+          this.write("Audio muted.", "yellow", "info");
+          return;
+        }
+
+        if (sub === "unmute") {
+          this.audioMuted = false;
+          this.applyAudioSettings();
+          this.write("Audio unmuted.", "green", "info");
+          return;
+        }
+
+        if (sub === "volume") {
+          const raw = parseInt(sub2, 10);
+          if (Number.isNaN(raw) || raw < 0 || raw > 100) {
+            this.write("Usage: audio volume 0-100", "yellow", "info");
+            return;
+          }
+          this.audioVolume = raw / 100;
+          this.audioMuted = false;
+          this.applyAudioSettings();
+          this.write(`Audio volume set to ${raw}%.`, "green", "info");
+          return;
+        }
+
+        if (sub === "music") {
+          if (sub2 === "off") {
+            this.audioMusicEnabled = false;
+            this.applyAudioSettings();
+            this.write("Music disabled.", "yellow", "info");
+            return;
+          }
+          if (sub2 === "on") {
+            this.audioMusicEnabled = true;
+            this.applyAudioSettings();
+            this.playMainBg();
+            this.write("Music enabled.", "green", "info");
+            return;
+          }
+        }
+
         this.write(
-          `Audio ${enabled ? "enabled" : "disabled"}.`,
-          enabled ? "green" : "yellow",
+          "Audio commands: audio, audio mute, audio unmute, audio volume 0-100, audio music on|off",
+          "yellow",
           "info",
         );
+      }
       }
 
       cmd_fullscreen() {
