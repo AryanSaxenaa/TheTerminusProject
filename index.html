@@ -83,6 +83,13 @@
         opacity: 0;
         animation: fadeInChar 0.1s forwards;
       }
+      .suggestion-box {
+        color: #00ffcc;
+        font-size: 14px;
+        font-family: monospace;
+        margin-top: 4px;
+        min-height: 18px;
+      }
 
       /* GAME GRID LAYOUT */
       #game-container {
@@ -946,6 +953,13 @@
               "autocomplete-suggestions",
             ),
           };
+          
+          this.elements.input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+          console.log("Enter pressed!"); 
+          this.processCommand(this.elements.input.value);
+          }
+         });
 
           // Audio system - with offline fallback
           this.audio = {
@@ -997,7 +1011,7 @@
             "save",
             "reset",
           ];
-
+  
           // Interactive Event System
           this.pendingEvent = null;
           this.eventHistory = [];
@@ -1163,7 +1177,7 @@
               minTurn: 10,
               maxOccurrences: 1,
             },
-
+        
             mutant_encounter: {
               id: "mutant_encounter",
               title: "The Changed Ones",
@@ -1401,7 +1415,8 @@
               maxOccurrences: 1,
             },
           };
-
+           
+          
           this.DATA = {
             buildings: {
               habitat: {
@@ -1795,8 +1810,63 @@ INITIALIZING ADMINISTRATOR LINK
           this.buildingCounter = 0;
           this.techPoints = 0;
         }
+         
+        getLevenshteinDistance(a, b) {
+          const matrix = [];
 
-        unlockBuilding(type) {
+          const lenA = a.length;
+          const lenB = b.length;
+
+  
+          for (let i = 0; i <= lenB; i++) {
+            matrix[i] = [i];
+          }
+
+          for (let j = 0; j <= lenA; j++) {
+            matrix[0][j] = j;
+          }
+
+          for (let i = 1; i <= lenB; i++) {
+            for (let j = 1; j <= lenA; j++) {
+              if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+              } else {
+                matrix[i][j] = Math.min(
+                  matrix[i - 1][j - 1] + 1,
+                  matrix[i][j - 1] + 1,
+                  matrix[i - 1][j] + 1
+                );
+              }
+            }
+          }
+
+          return matrix[lenB][lenA];
+        }
+        
+
+        findSuggestion(input) {
+        let closest = null;
+        let minDistance = Infinity;
+
+        this.commandList.forEach(cmd => {
+          const distance = this.getLevenshteinDistance(input, cmd);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closest = cmd;
+          }
+        });
+
+        // Only suggest if distance small enough
+        if (minDistance <= 2) {
+          return closest;
+        }
+
+        return null;
+      }
+    
+        
+
+      unlockBuilding(type) {
           if (this.DATA.buildings[type]) {
             this.DATA.buildings[type].unlocked = true;
           }
@@ -2064,7 +2134,8 @@ INITIALIZING ADMINISTRATOR LINK
             this.audio.available = false;
           }
         }
-
+          
+       
         applyAudioSettings() {
           if (!this.audio) return;
 
@@ -2230,6 +2301,17 @@ INITIALIZING ADMINISTRATOR LINK
           prompt.innerHTML =
             '<span style="color: var(--glow-color);">ADMIN@SECTOR-7: </span><input type="text" id="input" placeholder="Type \'help\' for commands..." /><span id="cursor"></span>';
           this.elements.input = document.getElementById("input");
+
+          // Create suggestion box
+          const suggestionBox = document.createElement("div");
+          suggestionBox.id = "command-suggestion";
+          suggestionBox.className = "suggestion-box";
+
+          // Append below input
+          prompt.appendChild(suggestionBox);
+
+          this.elements.suggestionBox = suggestionBox;
+
 
           this.elements.input.addEventListener(
             "keydown",
@@ -2682,10 +2764,20 @@ INITIALIZING ADMINISTRATOR LINK
             .map((opt) => opt.toLowerCase())
             .filter((opt) => opt.includes(normalizedToken));
 
-          if (matches.length === 0) {
-            this.hideSuggestions();
-            return;
-          }
+         if (matches.length === 0) {
+
+        // Try fuzzy suggestion
+        const fuzzy = this.findSuggestion(currentToken);
+
+        if (fuzzy) {
+          this.showSuggestions([fuzzy]);
+        } else {
+          this.hideSuggestions();
+        }
+
+        return;
+      }
+
 
           this.showSuggestions(matches);
         }
@@ -2798,8 +2890,105 @@ INITIALIZING ADMINISTRATOR LINK
           }
         }
 
+        // parseCommand(command) {
+        //   const [cmd, ...args] = command.toLowerCase().split(" ");
+
+        //   // Allow certain commands even during game over
+        //   if (
+        //     this.state.gameOver &&
+        //     !["help", "restart", "audio", "fullscreen"].includes(cmd)
+        //   ) {
+        //     this.write(
+        //       "Colony has fallen. Type 'restart' to begin anew or 'help' for available commands.",
+        //       "yellow",
+        //     );
+        //     return;
+        //   }
+
+        //   switch (cmd) {
+        //     case "help":
+        //       this.cmd_help();
+        //       break;
+        //     case "status":
+        //       this.cmd_status();
+        //       break;
+        //     case "resources":
+        //       this.cmd_resources();
+        //       break;
+        //     case "pass":
+        //       this.cmd_pass();
+        //       break;
+        //     case "emergency":
+        //       this.cmd_emergency();
+        //       break;
+        //     case "build":
+        //       this.cmd_build(args);
+        //       break;
+        //     case "upgrade":
+        //       this.cmd_upgrade(args);
+        //       break;
+        //     case "policy":
+        //       this.cmd_policy(args);
+        //       break;
+        //     case "research":
+        //       this.cmd_research(args);
+        //       break;
+        //     case "collective":
+        //       this.cmd_collective(args);
+        //       break;
+        //     case "tribute":
+        //       this.cmd_tribute(args);
+        //       break;
+        //     case "trade":
+        //       this.cmd_trade(args);
+        //       break;
+        //     case "propose":
+        //       this.cmd_propose(args);
+        //       break;
+        //     case "contact":
+        //       this.cmd_contact(args);
+        //       break;
+        //     case "terminus":
+        //       this.cmd_terminus(args);
+        //       break;
+        //     case "ending":
+        //       this.cmd_ending(args);
+        //       break;
+        //     case "event":
+        //       this.cmd_event(args);
+        //       break;
+        //     case "audio":
+        //       this.cmd_audio(args);
+        //       break;
+        //     case "fullscreen":
+        //       this.cmd_fullscreen();
+        //       break;
+        //     case "restart":
+        //       this.cmd_restart();
+        //       break;
+        //     case "save":
+        //       this.cmd_save();
+        //       break;
+        //     case "reset":
+        //       this.cmd_reset();
+        //       break;
+        //     default:
+        //       if (this.state.gameOver) {
+        //         this.write(
+        //           "Game Over. Type 'restart' to play again or 'help' for commands.",
+        //           "yellow",
+        //         );
+        //       } else {
+        //         this.write(`Error: command '${cmd}' not recognized.`, "red");
+        //       }
+        //   }
+        // }
         parseCommand(command) {
-          const [cmd, ...args] = command.toLowerCase().split(" ");
+
+          command = command.trim().toLowerCase();
+          if (!command) return;
+
+          const [cmd, ...args] = command.split(" ");
 
           // Allow certain commands even during game over
           if (
@@ -2808,11 +2997,41 @@ INITIALIZING ADMINISTRATOR LINK
           ) {
             this.write(
               "Colony has fallen. Type 'restart' to begin anew or 'help' for available commands.",
-              "yellow",
+              "yellow"
             );
             return;
           }
 
+          
+          const validCommands = [
+            "help","status","resources","pass","emergency",
+            "build","upgrade","policy","research","collective",
+            "tribute","trade","propose","contact","terminus",
+            "ending","event","audio","fullscreen",
+            "restart","save","reset"
+          ];
+
+        
+          if (!validCommands.includes(cmd)) {
+
+            const suggestion = this.findSuggestion(cmd);
+
+            if (suggestion) {
+              this.write(
+                `Error: command '${cmd}' not recognized. Did you mean '${suggestion}'?`,
+                "yellow"
+              );
+            } else {
+              this.write(
+                `Error: command '${cmd}' not recognized.`,
+                "red"
+              );
+            }
+
+            return;   
+          }
+
+          // Only valid commands reach here
           switch (cmd) {
             case "help":
               this.cmd_help();
@@ -2880,17 +3099,9 @@ INITIALIZING ADMINISTRATOR LINK
             case "reset":
               this.cmd_reset();
               break;
-            default:
-              if (this.state.gameOver) {
-                this.write(
-                  "Game Over. Type 'restart' to play again or 'help' for commands.",
-                  "yellow",
-                );
-              } else {
-                this.write(`Error: command '${cmd}' not recognized.`, "red");
-              }
           }
         }
+
 
         nextTurn() {
           // Store old resource values for comparison
